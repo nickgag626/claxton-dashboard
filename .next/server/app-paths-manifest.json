@@ -1,9 +1,0 @@
-{
-  "/_global-error/page": "app/_global-error/page.js",
-  "/_not-found/page": "app/_not-found/page.js",
-  "/api/market/[ticker]/route": "app/api/market/[ticker]/route.js",
-  "/api/markets/route": "app/api/markets/route.js",
-  "/api/portfolio/route": "app/api/portfolio/route.js",
-  "/favicon.ico/route": "app/favicon.ico/route.js",
-  "/page": "app/page.js"
-}

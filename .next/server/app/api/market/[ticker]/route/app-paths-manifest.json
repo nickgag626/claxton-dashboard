@@ -1,3 +1,0 @@
-{
-  "/api/market/[ticker]/route": "app/api/market/[ticker]/route.js"
-}
