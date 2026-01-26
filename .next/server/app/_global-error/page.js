@@ -1,0 +1,11 @@
+var R=require("../../chunks/ssr/[turbopack]_runtime.js")("server/app/_global-error/page.js")
+R.c("server/chunks/ssr/[root-of-the-server]__e84fde63._.js")
+R.c("server/chunks/ssr/clawd_claxton-dashboard_1f5be49e._.js")
+R.c("server/chunks/ssr/7b8e7_next_dist_e9357f31._.js")
+R.c("server/chunks/ssr/[root-of-the-server]__1646c85d._.js")
+R.c("server/chunks/ssr/[root-of-the-server]__b6f0a7da._.js")
+R.c("server/chunks/ssr/7b8e7_next_dist_35f94d6d._.js")
+R.c("server/chunks/ssr/clawd_claxton-dashboard_src_app_6b874adb._.js")
+R.c("server/chunks/ssr/4090f_claxton-dashboard__next-internal_server_app__global-error_page_actions_61b9c2ef.js")
+R.m(84744)
+module.exports=R.m(84744).exports

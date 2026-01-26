@@ -1,0 +1,3 @@
+module.exports=[16458,(a,b,c)=>{let{createClientModuleProxy:d}=a.r(90460);a.n(d("[project]/clawd/claxton-dashboard/node_modules/next/dist/client/components/builtin/global-error.js <module evaluation>"))},96728,(a,b,c)=>{let{createClientModuleProxy:d}=a.r(90460);a.n(d("[project]/clawd/claxton-dashboard/node_modules/next/dist/client/components/builtin/global-error.js"))},72700,a=>{"use strict";a.i(16458);var b=a.i(96728);a.n(b)}];
+
+//# sourceMappingURL=7b8e7_next_dist_client_components_builtin_global-error_af2a3849.js.map
