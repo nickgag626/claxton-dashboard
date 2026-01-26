@@ -1,7 +1,7 @@
 // Tradier API service - uses Python backend at Vercel
 import type { Quote, Position, Greeks, MarketState, Strategy, TradeSafeguards } from '@/types/trading';
 
-const API_BASE = 'http://13.58.110.133:8000';
+const API_BASE = 'https://expensive-facilitate-weed-nicole.trycloudflare.com';
 
 // Bot control types
 export interface BotStatus {
