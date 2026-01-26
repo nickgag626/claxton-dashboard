@@ -1,7 +1,15 @@
 // Tradier API service - uses Python backend at Vercel
-import type { Quote, Position, Greeks, MarketState } from '@/types/trading';
+import type { Quote, Position, Greeks, MarketState, Strategy, TradeSafeguards } from '@/types/trading';
 
 const API_BASE = 'https://claxton-quant-python.vercel.app';
+
+// Bot control types
+export interface BotStatus {
+  enabled: boolean;
+  monitor_running: boolean;
+  monitor_interval: number;
+  market_hours: boolean;
+}
 
 interface TradierQuote {
   symbol: string;
@@ -453,4 +461,74 @@ export const calculatePortfolioGreeks = (positions: Position[], optionData: any[
   });
 
   return { delta, gamma, theta, vega };
+};
+
+// === BOT CONTROL API ===
+
+export const botApi = {
+  async getStatus(): Promise<BotStatus | null> {
+    try {
+      const res = await fetch(`${API_BASE}/api/bot/status`);
+      if (!res.ok) return null;
+      return await res.json();
+    } catch (err) {
+      console.error('Failed to get bot status:', err);
+      return null;
+    }
+  },
+
+  async start(): Promise<{ success: boolean; enabled?: boolean; error?: string }> {
+    try {
+      const res = await fetch(`${API_BASE}/api/bot/start`, { method: 'POST' });
+      return await res.json();
+    } catch (err) {
+      return { success: false, error: String(err) };
+    }
+  },
+
+  async stop(): Promise<{ success: boolean; enabled?: boolean; error?: string }> {
+    try {
+      const res = await fetch(`${API_BASE}/api/bot/stop`, { method: 'POST' });
+      return await res.json();
+    } catch (err) {
+      return { success: false, error: String(err) };
+    }
+  },
+
+  async getStrategies(): Promise<any[]> {
+    try {
+      const res = await fetch(`${API_BASE}/api/strategies`);
+      const data = await res.json();
+      return data.success ? data.data : [];
+    } catch (err) {
+      console.error('Failed to get strategies:', err);
+      return [];
+    }
+  },
+
+  async getSettings(): Promise<any | null> {
+    try {
+      const res = await fetch(`${API_BASE}/api/settings`);
+      const data = await res.json();
+      return data.success ? data.data : null;
+    } catch (err) {
+      console.error('Failed to get settings:', err);
+      return null;
+    }
+  },
+
+  async updateStrategy(strategyId: string, updates: Record<string, any>): Promise<boolean> {
+    try {
+      const res = await fetch(`${API_BASE}/api/strategies/${strategyId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+      const data = await res.json();
+      return data.success;
+    } catch (err) {
+      console.error('Failed to update strategy:', err);
+      return false;
+    }
+  },
 };

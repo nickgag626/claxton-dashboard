@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { tradierApi, calculatePortfolioGreeks, parseOptionSymbol } from '@/services/tradierApi';
+import { tradierApi, botApi, calculatePortfolioGreeks, parseOptionSymbol } from '@/services/tradierApi';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import type {
@@ -47,56 +47,7 @@ export interface DtbpRejection {
 // Polling intervals
 const POLL_INTERVAL = 30_000; // 30s
 
-// Default strategies
-const defaultStrategies: Strategy[] = [
-  {
-    id: '1',
-    name: '0DTE Iron Condor (SPX)',
-    type: 'iron_condor',
-    underlying: 'SPX',
-    enabled: true,
-    maxPositions: 2,
-    positionSize: 1,
-    entryConditions: {
-      minDte: 0,
-      maxDte: 0,
-      shortDeltaTarget: 0.10,
-      longDeltaTarget: 0.05,
-      minPremium: 1.50,
-      marketHoursOnly: true,
-      startTime: '09:45',
-      endTime: '14:30',
-    },
-    exitConditions: {
-      profitTargetPercent: 50,
-      stopLossPercent: 100,
-      timeStopTime: '15:45',
-    },
-    sizing: { mode: 'fixed', fixedContracts: 1 },
-  },
-  {
-    id: '2',
-    name: 'Weekly Iron Condor (SPY)',
-    type: 'iron_condor',
-    underlying: 'SPY',
-    enabled: true,
-    maxPositions: 1,
-    positionSize: 2,
-    entryConditions: {
-      minDte: 5,
-      maxDte: 7,
-      shortDeltaTarget: 0.16,
-      longDeltaTarget: 0.08,
-      minPremium: 0.75,
-      marketHoursOnly: true,
-    },
-    exitConditions: {
-      profitTargetPercent: 50,
-      stopLossPercent: 200,
-    },
-    sizing: { mode: 'fixed', fixedContracts: 2 },
-  },
-];
+// No more hardcoded strategies - loaded from API
 
 const defaultSafeguards: TradeSafeguards = {
   maxBidAskSpreadPercent: 5,
@@ -112,7 +63,7 @@ export function useTradingData() {
   const [positions, setPositions] = useState<Position[]>([]);
   const [quotes, setQuotes] = useState<Record<string, Quote>>({});
   const [greeks, setGreeks] = useState<Greeks>({ delta: 0, gamma: 0, theta: 0, vega: 0 });
-  const [strategies, setStrategies] = useState<Strategy[]>(defaultStrategies);
+  const [strategies, setStrategies] = useState<Strategy[]>([]);
   const [activity, setActivity] = useState<ActivityEvent[]>([]);
   const [marketState, setMarketState] = useState<MarketState>('unknown');
   
@@ -167,6 +118,31 @@ export function useTradingData() {
       if (!pingResult.ok) {
         setError('API connection failed');
         return;
+      }
+      
+      // Fetch bot status from API
+      const botStatus = await botApi.getStatus();
+      if (botStatus) {
+        setIsBotRunning(botStatus.enabled);
+      }
+      
+      // Fetch strategies from API (only on first load or periodically)
+      const apiStrategies = await botApi.getStrategies();
+      if (apiStrategies.length > 0) {
+        // Transform API format to dashboard format
+        const transformedStrategies: Strategy[] = apiStrategies.map((s: any) => ({
+          id: s.id,
+          name: s.name,
+          type: s.type,
+          underlying: s.underlying,
+          enabled: s.enabled,
+          maxPositions: s.max_positions,
+          positionSize: s.position_size,
+          entryConditions: s.entry_conditions || {},
+          exitConditions: s.exit_conditions || {},
+          sizing: { mode: 'fixed', fixedContracts: s.position_size || 1 },
+        }));
+        setStrategies(transformedStrategies);
       }
       
       // Fetch positions from Tradier
@@ -277,17 +253,29 @@ export function useTradingData() {
   }, [fetchData]);
   
   // Actions
-  const toggleBot = useCallback(() => {
-    setIsBotRunning(prev => !prev);
+  const toggleBot = useCallback(async () => {
     const newState = !isBotRunning;
-    addActivity({
-      type: 'BOT',
-      message: newState ? 'Trading bot started' : 'Trading bot stopped',
-    });
-    toast({
-      title: newState ? 'Bot Started' : 'Bot Stopped',
-      description: newState ? 'Automated trading is now active' : 'Automated trading has been paused',
-    });
+    
+    // Call the API to start/stop the bot
+    const result = newState ? await botApi.start() : await botApi.stop();
+    
+    if (result.success) {
+      setIsBotRunning(newState);
+      addActivity({
+        type: 'BOT',
+        message: newState ? 'Trading bot started' : 'Trading bot stopped',
+      });
+      toast({
+        title: newState ? 'Bot Started' : 'Bot Stopped',
+        description: newState ? 'Automated trading is now active' : 'Automated trading has been paused',
+      });
+    } else {
+      toast({
+        title: 'Error',
+        description: result.error || 'Failed to toggle bot',
+        variant: 'destructive',
+      });
+    }
   }, [isBotRunning]);
   
   const toggleKillSwitch = useCallback(() => {
@@ -316,11 +304,31 @@ export function useTradingData() {
     setSafeguards(prev => ({ ...prev, ...settings }));
   }, []);
   
-  const toggleStrategy = useCallback((id: string) => {
+  const toggleStrategy = useCallback(async (id: string) => {
+    const strategy = strategies.find(s => s.id === id);
+    if (!strategy) return;
+    
+    const newEnabled = !strategy.enabled;
+    
+    // Update local state optimistically
     setStrategies(prev => prev.map(s => 
-      s.id === id ? { ...s, enabled: !s.enabled } : s
+      s.id === id ? { ...s, enabled: newEnabled } : s
     ));
-  }, []);
+    
+    // Persist to API
+    const success = await botApi.updateStrategy(id, { enabled: newEnabled });
+    if (!success) {
+      // Revert on failure
+      setStrategies(prev => prev.map(s => 
+        s.id === id ? { ...s, enabled: !newEnabled } : s
+      ));
+      toast({
+        title: 'Error',
+        description: 'Failed to update strategy',
+        variant: 'destructive',
+      });
+    }
+  }, [strategies]);
   
   const addStrategy = useCallback((strategy: Omit<Strategy, 'id'>) => {
     setStrategies(prev => [...prev, { ...strategy, id: crypto.randomUUID() }]);
