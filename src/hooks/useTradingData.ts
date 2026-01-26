@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { tradierApi, calculatePortfolioGreeks, parseOptionSymbol } from '@/services/tradierApi';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import type {
   Position, 
@@ -168,9 +169,56 @@ export function useTradingData() {
         return;
       }
       
-      // Fetch positions
+      // Fetch positions from Tradier
       const positionsData = await tradierApi.getPositions();
-      setPositions(positionsData);
+      
+      // Fetch position_group_map from Supabase to enrich positions with strategy data
+      const { data: groupMappings, error: mappingError } = await supabase
+        .from('position_group_map')
+        .select('symbol, trade_group_id, strategy_name, strategy_type, entry_credit, expiration, leg_side');
+      
+      if (mappingError) {
+        console.warn('Failed to fetch position_group_map:', mappingError);
+      }
+      
+      // Create lookup map by symbol for fast enrichment
+      const mappingBySymbol = new Map<string, {
+        tradeGroupId: string;
+        strategyName: string | null;
+        strategyType: string | null;
+        entryCredit: number | null;
+        legSide: string | null;
+      }>();
+      
+      if (groupMappings) {
+        for (const mapping of groupMappings) {
+          mappingBySymbol.set(mapping.symbol, {
+            tradeGroupId: mapping.trade_group_id,
+            strategyName: mapping.strategy_name,
+            strategyType: mapping.strategy_type,
+            entryCredit: mapping.entry_credit,
+            legSide: mapping.leg_side,
+          });
+        }
+      }
+      
+      // Enrich positions with strategy data from position_group_map
+      const enrichedPositions = positionsData.map(pos => {
+        const mapping = mappingBySymbol.get(pos.symbol);
+        if (mapping) {
+          return {
+            ...pos,
+            tradeGroupId: mapping.tradeGroupId,
+            strategyName: mapping.strategyName,
+            strategyType: mapping.strategyType,
+            entryCredit: mapping.entryCredit,
+            legSide: mapping.legSide,
+          };
+        }
+        return pos;
+      });
+      
+      setPositions(enrichedPositions);
       
       // Fetch SPY quote (main underlying)
       const quotesData = await tradierApi.getQuotes(['SPY', 'SPX']);
@@ -181,11 +229,11 @@ export function useTradingData() {
       setMarketState(clock.state);
       
       // Calculate portfolio Greeks (simplified - would need chain data for accuracy)
-      const portfolioGreeks = calculatePortfolioGreeks(positionsData, []);
+      const portfolioGreeks = calculatePortfolioGreeks(enrichedPositions, []);
       setGreeks(portfolioGreeks);
       
       // Calculate unrealized P&L from positions
-      const unrealizedPnl = positionsData.reduce((sum, pos) => {
+      const unrealizedPnl = enrichedPositions.reduce((sum, pos) => {
         const pnl = (pos.currentValue || 0) - (pos.costBasis || 0);
         return sum + pnl;
       }, 0);
