@@ -1,260 +1,233 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { useTradingData } from '@/hooks/useTradingData';
+import { Header } from '@/components/dashboard/Header';
+import { StatusRibbon } from '@/components/dashboard/StatusRibbon';
+import { KPIStrip } from '@/components/dashboard/KPIStrip';
+import { PositionsPanel } from '@/components/dashboard/PositionsPanel';
+import { ControlsPanel } from '@/components/dashboard/ControlsPanel';
+import { ActivityLog } from '@/components/dashboard/ActivityLog';
+import { StrategiesPanel } from '@/components/dashboard/StrategiesPanel';
+import { PnLChart } from '@/components/dashboard/PnLChart';
+import { GreeksChart } from '@/components/dashboard/GreeksChart';
+import { DataLagWarning } from '@/components/dashboard/DataLagWarning';
+import { TradeJournal } from '@/components/dashboard/TradeJournal';
+import { OptionsChain } from '@/components/dashboard/OptionsChain';
+import { RecoveryPanel } from '@/components/dashboard/RecoveryPanel';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-
-const API_BASE = 'https://claxton-quant-python.vercel.app';
-
-interface Quote {
-  symbol: string;
-  last: number;
-  change: number;
-  change_percentage: number;
-  bid: number;
-  ask: number;
-  volume: number;
-  high: number;
-  low: number;
-}
-
-interface Balance {
-  total_equity: number;
-  cash: number;
-  margin_buying_power: number;
-  pending_orders: number;
-}
-
-interface Position {
-  symbol: string;
-  quantity: number;
-  cost_basis: number;
-  current_value?: number;
-}
+import { BookOpen, Grid3X3, Activity, AlertTriangle, RefreshCw, WifiOff, Loader2 } from 'lucide-react';
 
 export default function Dashboard() {
-  const [quote, setQuote] = useState<Quote | null>(null);
-  const [balance, setBalance] = useState<Balance | null>(null);
-  const [positions, setPositions] = useState<Position[]>([]);
-  const [expirations, setExpirations] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    positions,
+    greeks,
+    quotes,
+    strategies,
+    riskStatus,
+    safeguards,
+    activity,
+    marketState,
+    isApiConnected,
+    isBotRunning,
+    lastUpdate,
+    lastCheckExitsTime,
+    deltaHistory,
+    pnlHistory,
+    isLoading,
+    error,
+    toggleBot,
+    toggleKillSwitch,
+    updateRiskSettings,
+    updateSafeguards,
+    toggleStrategy,
+    addStrategy,
+    updateStrategy,
+    deleteStrategy,
+    closePosition,
+    emergencyCloseAll,
+    closeDebugOptions,
+    setCloseDebugOptions,
+    lastCloseDebug,
+    copyLastCloseDebug,
+    // Group-aware closing
+    legOutModeEnabled,
+    setLegOutModeEnabled,
+    closeGroup,
+    retryCloseAsGroup,
+    dtbpRejection,
+    isGroupedPosition,
+    getGroupPositions,
+    getExitStatus,
+    clearHistory,
+    // Structure Integrity Gate
+    entryBlockedReason,
+    clearEntryBlock,
+    // Mapping maintenance
+    purgeStaleMappings,
+    // Wide spread block confirmation
+    wideSpreadBlock,
+    forceCloseGroup,
+    clearWideSpreadBlock,
+    // Refetch
+    refetch,
+  } = useTradingData();
 
-  const fetchData = async () => {
-    try {
-      setError(null);
-      
-      // Fetch SPY quote
-      const quoteRes = await fetch(`${API_BASE}/api/quote/SPY`);
-      const quoteData = await quoteRes.json();
-      if (quoteData.success) {
-        setQuote(quoteData.data);
-      }
+  const enabledStrategiesCount = strategies.filter(s => s.enabled).length;
+  const nearestDte = positions.length > 0 ? 11 : null; // Mock value
 
-      // Fetch account balance
-      const balanceRes = await fetch(`${API_BASE}/api/account/balance`);
-      const balanceData = await balanceRes.json();
-      if (balanceData.success) {
-        setBalance(balanceData.data);
-      }
-
-      // Fetch positions
-      const posRes = await fetch(`${API_BASE}/api/account/positions`);
-      const posData = await posRes.json();
-      if (posData.success) {
-        setPositions(posData.data || []);
-      }
-
-      // Fetch expirations
-      const expRes = await fetch(`${API_BASE}/api/expirations/SPY`);
-      const expData = await expRes.json();
-      if (expData.success) {
-        setExpirations(expData.data?.slice(0, 8) || []);
-      }
-
-      setLoading(false);
-    } catch (err) {
-      setError('Failed to fetch data from API');
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 30000); // Refresh every 30s
-    return () => clearInterval(interval);
-  }, []);
-
-  if (loading) {
+  // Show loading state during initial load
+  if (isLoading && !isApiConnected && positions.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
-        <div className="text-xl">Loading Claxton...</div>
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-12 w-12 animate-spin text-muted-foreground mx-auto" />
+          <p className="text-muted-foreground">Connecting to trading API...</p>
+        </div>
       </div>
     );
   }
 
+  // Show error banner (not blocking) when API has issues but we have some data
+  const showErrorBanner = error && !isApiConnected;
+
   return (
-    <div className="min-h-screen bg-gray-950 text-white p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold">Claxton-Quant</h1>
-            <p className="text-gray-400">Iron Condor Trading Engine</p>
-          </div>
-          <Badge variant="outline" className="text-green-400 border-green-400">
-            {error ? 'Disconnected' : 'Connected'}
-          </Badge>
-        </div>
-
-        {error && (
-          <div className="bg-red-900/50 border border-red-500 rounded-lg p-4">
-            {error}
-          </div>
+    <div className="min-h-screen bg-background p-4 md:p-6">
+      <div className="max-w-7xl mx-auto space-y-4">
+        <Header />
+        
+        {/* API Error Banner - shown but doesn't block UI */}
+        {showErrorBanner && (
+          <Alert variant="destructive" className="border-destructive/50 bg-destructive/10">
+            <WifiOff className="h-4 w-4" />
+            <AlertTitle className="flex items-center gap-2">
+              API Connection Issue
+            </AlertTitle>
+            <AlertDescription className="flex items-center justify-between">
+              <span className="text-sm">{error || 'Unable to connect to trading API. Retrying automatically...'}</span>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={refetch}
+                className="ml-4 shrink-0"
+              >
+                <RefreshCw className="h-3 w-3 mr-1" />
+                Retry Now
+              </Button>
+            </AlertDescription>
+          </Alert>
         )}
-
-        {/* Top Row - Quote & Account */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* SPY Quote */}
-          <Card className="bg-gray-900 border-gray-800">
-            <CardHeader className="pb-2">
-              <CardTitle className="flex justify-between">
-                <span>SPY</span>
-                {quote && (
-                  <span className={quote.change >= 0 ? 'text-green-400' : 'text-red-400'}>
-                    {quote.change >= 0 ? '+' : ''}{quote.change_percentage.toFixed(2)}%
-                  </span>
-                )}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {quote ? (
-                <div className="space-y-2">
-                  <div className="text-4xl font-bold">${quote.last.toFixed(2)}</div>
-                  <div className="grid grid-cols-3 gap-4 text-sm text-gray-400">
-                    <div>
-                      <div className="text-gray-500">Bid</div>
-                      <div>${quote.bid.toFixed(2)}</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-500">Ask</div>
-                      <div>${quote.ask.toFixed(2)}</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-500">Volume</div>
-                      <div>{(quote.volume / 1000000).toFixed(1)}M</div>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4 text-sm text-gray-400">
-                    <div>
-                      <div className="text-gray-500">Day High</div>
-                      <div>${quote.high.toFixed(2)}</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-500">Day Low</div>
-                      <div>${quote.low.toFixed(2)}</div>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-gray-500">No quote data</div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Account Balance */}
-          <Card className="bg-gray-900 border-gray-800">
-            <CardHeader className="pb-2">
-              <CardTitle>Account</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {balance ? (
-                <div className="space-y-2">
-                  <div className="text-4xl font-bold text-green-400">
-                    ${balance.total_equity?.toLocaleString() || '0'}
-                  </div>
-                  <div className="grid grid-cols-2 gap-4 text-sm text-gray-400">
-                    <div>
-                      <div className="text-gray-500">Cash</div>
-                      <div>${balance.cash?.toLocaleString() || '0'}</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-500">Buying Power</div>
-                      <div>${balance.margin_buying_power?.toLocaleString() || '0'}</div>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-gray-500">No account data</div>
-              )}
-            </CardContent>
-          </Card>
+        
+        <DataLagWarning />
+        
+        <StatusRibbon
+          isApiConnected={isApiConnected}
+          isQuotesLive={true}
+          isBotRunning={isBotRunning}
+          killSwitchActive={riskStatus.killSwitchActive}
+          marketState={marketState}
+          positionCount={positions.length}
+          nearestDte={nearestDte}
+          lastUpdate={lastUpdate}
+          lastCheckExitsTime={lastCheckExitsTime}
+        />
+        
+        <KPIStrip
+          riskStatus={riskStatus}
+          greeks={greeks}
+          quotes={quotes}
+          enabledStrategiesCount={enabledStrategiesCount}
+          positionCount={positions.length}
+        />
+        
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-2 space-y-4">
+            <PositionsPanel
+              positions={positions}
+              isApiConnected={isApiConnected}
+              onClosePosition={closePosition}
+              onCloseGroup={closeGroup}
+              legOutModeEnabled={legOutModeEnabled}
+              onLegOutModeChange={setLegOutModeEnabled}
+              isGroupedPosition={isGroupedPosition}
+              getGroupPositions={getGroupPositions}
+              getExitStatus={getExitStatus}
+              dtbpRejection={dtbpRejection}
+              onRetryCloseAsGroup={retryCloseAsGroup}
+              entryBlockedReason={entryBlockedReason}
+              onClearEntryBlock={clearEntryBlock}
+              onPurgeStaleMappings={purgeStaleMappings}
+              wideSpreadBlock={wideSpreadBlock}
+              onForceCloseGroup={forceCloseGroup}
+              onClearWideSpreadBlock={clearWideSpreadBlock}
+            />
+            <PnLChart dailyPnl={riskStatus.dailyPnl} pnlHistory={pnlHistory} />
+            <GreeksChart currentDelta={greeks.delta} deltaHistory={deltaHistory} />
+          </div>
+          <div>
+            <ControlsPanel
+              greeks={greeks}
+              riskStatus={riskStatus}
+              safeguards={safeguards}
+              isBotRunning={isBotRunning}
+              onToggleBot={toggleBot}
+              onToggleKillSwitch={toggleKillSwitch}
+              onEmergencyClose={emergencyCloseAll}
+              onUpdateRiskSettings={updateRiskSettings}
+              onUpdateSafeguards={updateSafeguards}
+              closeDebugOptions={closeDebugOptions}
+              onCloseDebugOptionsChange={setCloseDebugOptions}
+              lastCloseDebug={lastCloseDebug}
+              onCopyCloseDebug={copyLastCloseDebug}
+            />
+          </div>
         </div>
-
-        {/* Expirations */}
-        <Card className="bg-gray-900 border-gray-800">
-          <CardHeader className="pb-2">
-            <CardTitle>Available Expirations</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              {expirations.length > 0 ? (
-                expirations.map((exp) => (
-                  <Badge key={exp} variant="secondary" className="bg-gray-800 hover:bg-gray-700 cursor-pointer">
-                    {exp}
-                  </Badge>
-                ))
-              ) : (
-                <span className="text-gray-500">No expirations loaded</span>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Positions */}
-        <Card className="bg-gray-900 border-gray-800">
-          <CardHeader className="pb-2">
-            <CardTitle>Open Positions</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {positions.length > 0 ? (
-              <div className="space-y-2">
-                {positions.map((pos, i) => (
-                  <div key={i} className="flex justify-between items-center p-3 bg-gray-800 rounded">
-                    <div>
-                      <div className="font-medium">{pos.symbol}</div>
-                      <div className="text-sm text-gray-400">Qty: {pos.quantity}</div>
-                    </div>
-                    <div className="text-right">
-                      <div>${pos.cost_basis?.toFixed(2)}</div>
-                      <div className="text-sm text-gray-400">Cost Basis</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-gray-500 text-center py-8">No open positions</div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Actions */}
-        <div className="flex gap-4">
-          <Button 
-            onClick={fetchData}
-            className="bg-blue-600 hover:bg-blue-700"
-          >
-            Refresh Data
-          </Button>
-          <Button 
-            variant="outline"
-            className="border-gray-700 hover:bg-gray-800"
-            onClick={() => window.open(`${API_BASE}/health`, '_blank')}
-          >
-            API Health
-          </Button>
-        </div>
+        
+        <StrategiesPanel 
+          strategies={strategies} 
+          onToggleStrategy={toggleStrategy}
+          onAddStrategy={addStrategy}
+          onUpdateStrategy={updateStrategy}
+          onDeleteStrategy={deleteStrategy}
+        />
+        
+        <Tabs defaultValue="journal" className="w-full">
+          <TabsList className="grid w-full grid-cols-4 max-w-lg">
+            <TabsTrigger value="journal" className="flex items-center gap-2">
+              <BookOpen className="h-4 w-4" />
+              <span className="hidden sm:inline">Trade Journal</span>
+              <span className="sm:hidden">Journal</span>
+            </TabsTrigger>
+            <TabsTrigger value="chain" className="flex items-center gap-2">
+              <Grid3X3 className="h-4 w-4" />
+              <span className="hidden sm:inline">Options Chain</span>
+              <span className="sm:hidden">Chain</span>
+            </TabsTrigger>
+            <TabsTrigger value="recovery" className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4" />
+              <span className="hidden sm:inline">Recovery</span>
+              <span className="sm:hidden">Recover</span>
+            </TabsTrigger>
+            <TabsTrigger value="activity" className="flex items-center gap-2">
+              <Activity className="h-4 w-4" />
+              <span className="hidden sm:inline">Activity Log</span>
+              <span className="sm:hidden">Activity</span>
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="journal" className="mt-4">
+            <TradeJournal />
+          </TabsContent>
+          <TabsContent value="chain" className="mt-4">
+            <OptionsChain />
+          </TabsContent>
+          <TabsContent value="recovery" className="mt-4">
+            <RecoveryPanel onRefresh={refetch} />
+          </TabsContent>
+          <TabsContent value="activity" className="mt-4">
+            <ActivityLog events={activity} onClearHistory={clearHistory} />
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
