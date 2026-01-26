@@ -214,10 +214,23 @@ export function useTradingData() {
         return sum + pnl;
       }, 0);
       
+      // Fetch today's trade count from Supabase (trades opened today)
+      // Use ET timezone for "today" calculation
+      const nowET = new Date().toLocaleString('en-US', { timeZone: 'America/New_York' });
+      const todayET = new Date(nowET);
+      todayET.setHours(0, 0, 0, 0);
+      const todayStart = todayET.toISOString();
+      
+      const { count: tradesTodayCount } = await supabase
+        .from('trades')
+        .select('*', { count: 'exact', head: true })
+        .gte('entry_time', todayStart);
+      
       setRiskStatus(prev => ({
         ...prev,
         unrealizedPnl,
         dailyPnl: prev.realizedPnl + unrealizedPnl,
+        tradeCount: tradesTodayCount || 0,
       }));
       
       // Update timestamps
