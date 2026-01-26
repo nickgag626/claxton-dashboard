@@ -1,94 +1,9 @@
-// Supabase client stub for Next.js dashboard
-// This is a minimal mock that allows the dashboard to run without Supabase
+// Supabase client for Next.js dashboard
+import { createClient } from '@supabase/supabase-js';
 
-export interface SupabaseQueryResult<T> {
-  data: T | null;
-  error: Error | null;
-}
+const SUPABASE_URL = 'https://tlilzsovehqryoyywean.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRsaWx6c292ZWhxcnlveXl3ZWFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3MjEwOTQsImV4cCI6MjA4MzI5NzA5NH0.H9ke0r2KVKr0EVkk7xADf-tqkQPqpq1EJX5WP5ndEwo';
 
-// Create a chainable mock query builder
-const createMockQueryBuilder = () => {
-  const mockResult = { data: null, error: null };
-  const mockArrayResult = { data: [], error: null };
-  
-  const builder: any = {
-    select: (...args: any[]) => builder,
-    eq: (...args: any[]) => builder,
-    neq: (...args: any[]) => builder,
-    gt: (...args: any[]) => builder,
-    gte: (...args: any[]) => builder,
-    lt: (...args: any[]) => builder,
-    lte: (...args: any[]) => builder,
-    like: (...args: any[]) => builder,
-    ilike: (...args: any[]) => builder,
-    is: (...args: any[]) => builder,
-    in: (...args: any[]) => builder,
-    contains: (...args: any[]) => builder,
-    containedBy: (...args: any[]) => builder,
-    rangeGt: (...args: any[]) => builder,
-    rangeGte: (...args: any[]) => builder,
-    rangeLt: (...args: any[]) => builder,
-    rangeLte: (...args: any[]) => builder,
-    rangeAdjacent: (...args: any[]) => builder,
-    overlaps: (...args: any[]) => builder,
-    textSearch: (...args: any[]) => builder,
-    match: (...args: any[]) => builder,
-    not: (...args: any[]) => builder,
-    or: (...args: any[]) => builder,
-    filter: (...args: any[]) => builder,
-    order: (...args: any[]) => builder,
-    limit: (...args: any[]) => builder,
-    range: (...args: any[]) => builder,
-    abortSignal: (...args: any[]) => builder,
-    single: async () => mockResult,
-    maybeSingle: async () => mockResult,
-    csv: async () => ({ data: '', error: null }),
-    then: (resolve: (result: any) => void) => {
-      resolve(mockArrayResult);
-      return Promise.resolve(mockArrayResult);
-    },
-  };
-  
-  return builder;
-};
-
-// Mock channel subscription
-const mockChannel = {
-  on: (...args: any[]) => mockChannel,
-  subscribe: () => ({ unsubscribe: () => {} }),
-};
-
-export const supabase = {
-  channel: (name: string) => mockChannel,
-  removeChannel: (channel: any) => {},
-  from: (table: string) => {
-    const builder = createMockQueryBuilder();
-    return {
-      ...builder,
-      insert: (data: any) => ({
-        ...createMockQueryBuilder(),
-        select: (...args: any[]) => createMockQueryBuilder(),
-      }),
-      update: (data: any) => ({
-        ...createMockQueryBuilder(),
-      }),
-      upsert: (data: any) => ({
-        ...createMockQueryBuilder(),
-        select: (...args: any[]) => createMockQueryBuilder(),
-      }),
-      delete: () => createMockQueryBuilder(),
-    };
-  },
-  functions: {
-    invoke: async (name: string, opts?: any): Promise<{ data: any; error: Error | null }> => {
-      console.log(`[supabase.functions.invoke] ${name}`, opts);
-      return { data: null, error: null };
-    },
-  },
-  rpc: async (name: string, params?: any): Promise<SupabaseQueryResult<any>> => {
-    console.log(`[supabase.rpc] ${name}`, params);
-    return { data: null, error: null };
-  },
-};
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 export type SupabaseClient = typeof supabase;
