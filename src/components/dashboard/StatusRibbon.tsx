@@ -4,6 +4,14 @@ import { motion } from 'framer-motion';
 import { StatusBadge } from './StatusBadge';
 import type { MarketState } from '@/types/trading';
 
+interface StreamingStatus {
+  mode: 'polling' | 'streaming';
+  connected: boolean;
+  avgLatencyMs: number;
+  quotesReceived: number;
+  exitsTriggered: number;
+}
+
 interface StatusRibbonProps {
   isApiConnected: boolean;
   isQuotesLive: boolean;
@@ -14,6 +22,7 @@ interface StatusRibbonProps {
   nearestDte: number | null;
   lastUpdate: Date | null;
   lastCheckExitsTime?: Date | null;
+  streamingStatus?: StreamingStatus;
 }
 
 export const StatusRibbon = ({
@@ -26,9 +35,26 @@ export const StatusRibbon = ({
   nearestDte,
   lastUpdate,
   lastCheckExitsTime,
+  streamingStatus,
 }: StatusRibbonProps) => {
-  // Calculate heartbeat status for check_exits
-  const getHeartbeatStatus = (): { variant: 'green' | 'amber' | 'red' | 'gray'; text: string } => {
+  // Calculate exit monitor status
+  const getExitStatus = (): { variant: 'green' | 'amber' | 'red' | 'gray'; text: string } => {
+    // Streaming mode
+    if (streamingStatus?.mode === 'streaming') {
+      if (streamingStatus.connected) {
+        const latency = streamingStatus.avgLatencyMs;
+        if (latency > 0 && latency < 500) {
+          return { variant: 'green', text: `EXITS:${Math.round(latency)}ms` };
+        } else if (latency >= 500) {
+          return { variant: 'amber', text: `EXITS:${Math.round(latency)}ms` };
+        }
+        return { variant: 'green', text: 'EXITS:STREAM' };
+      } else {
+        return { variant: 'amber', text: 'EXITS:DISC' };
+      }
+    }
+    
+    // Polling mode fallback
     if (!lastCheckExitsTime) {
       return { variant: 'gray', text: 'EXITS:--' };
     }
@@ -44,7 +70,7 @@ export const StatusRibbon = ({
     }
   };
 
-  const heartbeat = getHeartbeatStatus();
+  const exitStatus = getExitStatus();
 
   return (
     <motion.div
@@ -64,8 +90,8 @@ export const StatusRibbon = ({
         BOT:{isBotRunning ? 'RUNNING' : 'STOPPED'}
       </StatusBadge>
 
-      <StatusBadge variant={heartbeat.variant}>
-        {heartbeat.text}
+      <StatusBadge variant={exitStatus.variant}>
+        {exitStatus.text}
       </StatusBadge>
 
       <StatusBadge variant={killSwitchActive ? 'red' : 'gray'}>

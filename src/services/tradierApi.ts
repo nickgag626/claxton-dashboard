@@ -4,11 +4,31 @@ import type { Quote, Position, Greeks, MarketState, Strategy, TradeSafeguards } 
 const API_BASE = 'https://expensive-facilitate-weed-nicole.trycloudflare.com';
 
 // Bot control types
+export interface StreamingStatus {
+  running: boolean;
+  connected: boolean;
+  session_id: string | null;
+  subscribed_symbols: number;
+  tracked_positions: number;
+  quotes_received: number;
+  exits_triggered: number;
+  avg_latency_ms: number;
+  last_quote_age_ms: number | null;
+}
+
 export interface BotStatus {
   enabled: boolean;
   monitor_running: boolean;
-  monitor_interval: number;
+  monitor_interval?: number;
+  monitor_mode?: 'polling' | 'streaming';
   market_hours: boolean;
+  streaming?: StreamingStatus;
+  // Legacy fields for backwards compat
+  connected?: boolean;
+  subscribed_symbols?: number;
+  quotes_received?: number;
+  avg_latency_ms?: number;
+  exits_triggered?: number;
 }
 
 interface TradierQuote {

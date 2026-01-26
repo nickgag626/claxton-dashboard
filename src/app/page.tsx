@@ -33,6 +33,7 @@ export default function Dashboard() {
     isBotRunning,
     lastUpdate,
     lastCheckExitsTime,
+    streamingStatus,
     deltaHistory,
     pnlHistory,
     isLoading,
@@ -143,6 +144,7 @@ export default function Dashboard() {
           nearestDte={nearestDte}
           lastUpdate={lastUpdate}
           lastCheckExitsTime={lastCheckExitsTime}
+          streamingStatus={streamingStatus}
         />
         
         <KPIStrip

@@ -75,6 +75,21 @@ export function useTradingData() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
+  // Streaming monitor state
+  const [streamingStatus, setStreamingStatus] = useState<{
+    mode: 'polling' | 'streaming';
+    connected: boolean;
+    avgLatencyMs: number;
+    quotesReceived: number;
+    exitsTriggered: number;
+  }>({
+    mode: 'polling',
+    connected: false,
+    avgLatencyMs: 0,
+    quotesReceived: 0,
+    exitsTriggered: 0,
+  });
+  
   // Risk state
   const [riskStatus, setRiskStatus] = useState<RiskStatus>({
     dailyPnl: 0,
@@ -124,6 +139,24 @@ export function useTradingData() {
       const botStatus = await botApi.getStatus();
       if (botStatus) {
         setIsBotRunning(botStatus.enabled);
+        
+        // Update streaming status
+        const streaming = botStatus.streaming;
+        if (streaming || botStatus.monitor_mode === 'streaming') {
+          setStreamingStatus({
+            mode: 'streaming',
+            connected: streaming?.connected ?? botStatus.connected ?? false,
+            avgLatencyMs: streaming?.avg_latency_ms ?? botStatus.avg_latency_ms ?? 0,
+            quotesReceived: streaming?.quotes_received ?? botStatus.quotes_received ?? 0,
+            exitsTriggered: streaming?.exits_triggered ?? botStatus.exits_triggered ?? 0,
+          });
+          // For streaming, update check exits time if connected
+          if (streaming?.connected || botStatus.connected) {
+            setLastCheckExitsTime(new Date());
+          }
+        } else {
+          setStreamingStatus(prev => ({ ...prev, mode: 'polling' }));
+        }
       }
       
       // Fetch strategies from API (only on first load or periodically)
@@ -543,6 +576,7 @@ export function useTradingData() {
     lastCheckExitsTime,
     isLoading,
     error,
+    streamingStatus,
     
     // Chart data
     deltaHistory,
