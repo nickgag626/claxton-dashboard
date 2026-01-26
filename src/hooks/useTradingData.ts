@@ -196,8 +196,8 @@ export function useTradingData() {
       
       setPositions(enrichedPositions);
       
-      // Fetch SPY quote (main underlying)
-      const quotesData = await tradierApi.getQuotes(['SPY', 'SPX']);
+      // Fetch SPY, SPX, QQQ quotes (main underlyings)
+      const quotesData = await tradierApi.getQuotes(['SPY', 'SPX', 'QQQ']);
       setQuotes(quotesData);
       
       // Get market clock

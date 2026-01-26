@@ -75,7 +75,19 @@ export default function Dashboard() {
   } = useTradingData();
 
   const enabledStrategiesCount = strategies.filter(s => s.enabled).length;
-  const nearestDte = positions.length > 0 ? 11 : null; // Mock value
+  // Calculate nearest DTE from open positions
+  const nearestDte = (() => {
+    if (positions.length === 0) return null;
+    const dtes = positions
+      .map(p => {
+        if (!p.expirationDate) return null;
+        const exp = new Date(p.expirationDate);
+        const today = new Date();
+        return Math.ceil((exp.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      })
+      .filter((d): d is number => d !== null && d >= 0);
+    return dtes.length > 0 ? Math.min(...dtes) : null;
+  })();
 
   // Show loading state during initial load
   if (isLoading && !isApiConnected && positions.length === 0) {
