@@ -388,30 +388,54 @@ export function MCPPanel() {
         )}
       </Card>
 
+      {/* How It Works */}
+      <Card className="border-dashed">
+        <CardContent className="pt-4">
+          <div className="flex items-start gap-3">
+            <Activity className="h-5 w-5 text-muted-foreground mt-0.5" />
+            <div className="space-y-2 text-sm text-muted-foreground">
+              <p>
+                <strong className="text-foreground">MCP Intelligence</strong> analyzes market conditions before allowing trades. 
+                It scans IV rank, RSI, trend direction, and VIX regime to score each underlying.
+              </p>
+              <p>
+                When <strong className="text-foreground">enabled</strong>, the bot will only enter positions that pass the configured 
+                thresholds (IV rank, volatility regime). When <strong className="text-foreground">disabled</strong>, all strategy 
+                entries proceed without MCP filtering.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card>
           <CardContent className="pt-4">
             <div className="text-2xl font-bold">{stats?.signals_24h || 0}</div>
             <p className="text-xs text-muted-foreground">Scans (24h)</p>
+            <p className="text-xs text-muted-foreground/60 mt-1">Market analyses run</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
             <div className="text-2xl font-bold text-yellow-600">{stats?.opportunities_24h || 0}</div>
             <p className="text-xs text-muted-foreground">Opportunities</p>
+            <p className="text-xs text-muted-foreground/60 mt-1">Setups that passed filters</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
             <div className="text-2xl font-bold text-green-600">{stats?.trades_24h || 0}</div>
             <p className="text-xs text-muted-foreground">Trades Taken</p>
+            <p className="text-xs text-muted-foreground/60 mt-1">Entries executed</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
             <div className="text-2xl font-bold">{stats?.avg_score_24h?.toFixed(1) || '-'}</div>
             <p className="text-xs text-muted-foreground">Avg Score</p>
+            <p className="text-xs text-muted-foreground/60 mt-1">-1 bearish to +1 bullish</p>
           </CardContent>
         </Card>
         <Card>
@@ -420,6 +444,7 @@ export function MCPPanel() {
               {stats?.last_signal_at ? formatTimeAgo(stats.last_signal_at) : '-'}
             </div>
             <p className="text-xs text-muted-foreground">Last Signal</p>
+            <p className="text-xs text-muted-foreground/60 mt-1">Most recent scan</p>
           </CardContent>
         </Card>
       </div>
@@ -428,7 +453,12 @@ export function MCPPanel() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle className="text-base">Activity Feed</CardTitle>
+            <div>
+              <CardTitle className="text-base">Activity Feed</CardTitle>
+              <CardDescription>
+                Real-time signals from IV rank, RSI, trend analysis, and market regime detection
+              </CardDescription>
+            </div>
             <Button variant="ghost" size="sm" onClick={fetchSignals} disabled={isLoading}>
               <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             </Button>
