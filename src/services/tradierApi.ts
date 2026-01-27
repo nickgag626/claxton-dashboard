@@ -1,7 +1,8 @@
-// Tradier API service - uses Python backend at Vercel
+// Tradier API service - uses Python backend on EC2 (via Cloudflare tunnel)
 import type { Quote, Position, Greeks, MarketState, Strategy, TradeSafeguards } from '@/types/trading';
 
-const API_BASE = 'https://movie-parties-kong-ferry.trycloudflare.com';
+import { API_BASE } from '@/services/apiBase';
+
 
 // Bot control types
 export interface StreamingStatus {

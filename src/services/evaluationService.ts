@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { API_BASE } from '@/services/apiBase';
 import type { StrategyEvaluation, EventType, Decision, Gate, EvaluationInputs, ProposedOrder } from '@/types/evaluation';
 
 // Generate a hash for de-duplication
@@ -79,23 +80,123 @@ export const evaluationService = {
     return newHash !== oldHash;
   },
 
-  // Trigger a manual evaluation for a strategy
+  // Trigger a manual evaluation for a strategy (routes to EC2 Python engine)
+  // NOTE: This no longer calls the Supabase Edge Function (CORS issues / deprecated path).
   async runEvaluation(strategyId: string, options?: { 
     overrideMarketStatus?: string;
     overrideTimeET?: string;
   }): Promise<StrategyEvaluation | null> {
     try {
-      const { data, error } = await supabase.functions.invoke('strategy-engine', {
-        body: {
-          action: 'run_evaluation',
-          strategyId,
-          overrideMarketStatus: options?.overrideMarketStatus,
-          overrideTimeET: options?.overrideTimeET,
+      // 1) Load strategy config from Supabase
+      const { data: stratRow, error: stratErr } = await supabase
+        .from('strategies')
+        .select('*')
+        .eq('id', strategyId)
+        .single();
+
+      if (stratErr || !stratRow) {
+        console.error('Error loading strategy for runEvaluation:', stratErr);
+        return null;
+      }
+
+      // 2) Ask the Python engine to evaluate (single-strategy)
+      const payloadStrategies = [
+        {
+          id: stratRow.id,
+          name: stratRow.name,
+          underlying: stratRow.underlying,
+          enabled: stratRow.enabled,
+          min_dte: stratRow.entry_conditions?.minDte ?? 30,
+          max_dte: stratRow.entry_conditions?.maxDte ?? 60,
+          min_credit: stratRow.entry_conditions?.minPremium ?? 0.5,
+          min_credit_percent: 10.0,
+          target_delta: stratRow.entry_conditions?.shortDeltaTarget ?? 0.16,
+          profit_target_percent: stratRow.exit_conditions?.profitTargetPercent ?? 50,
+          stop_loss_percent: stratRow.exit_conditions?.stopLossPercent ?? 200,
+          time_stop_dte: stratRow.exit_conditions?.timeStopDte ?? 7,
+          max_positions: stratRow.max_positions ?? 3,
+          max_risk_per_trade: (stratRow.entry_conditions?.sizing?.riskPerTrade) ?? 500,
         },
+      ];
+
+      const evalRes = await fetch(`${API_BASE}/api/engine/evaluate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ strategies: payloadStrategies }),
       });
 
-      if (error) throw error;
-      return data?.evaluation ? this.mapToEvaluation(data.evaluation) : null;
+      const evalJson = await evalRes.json();
+      const signals = evalJson?.success ? (evalJson?.data?.signals || []) : [];
+
+      // 3) If we got a signal, execute it immediately
+      let decision: Decision = 'SKIP';
+      let reason = 'no_signal';
+      let tradeGroupId: string | null = null;
+
+      if (signals.length > 0) {
+        const sig = signals[0];
+        const execRes = await fetch(`${API_BASE}/api/engine/execute`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            strategy_name: sig.strategy_name,
+            underlying: sig.underlying,
+            expiration: sig.expiration,
+            legs: sig.legs,
+            expected_credit: sig.expected_credit,
+          }),
+        });
+
+        const execJson = await execRes.json();
+        if (execJson?.success) {
+          decision = 'OPEN';
+          reason = 'manual_run_opened';
+          // trade_group_id is created server-side when logging; may not be returned here
+        } else {
+          decision = 'FAIL';
+          reason = execJson?.error || 'manual_run_failed';
+        }
+      }
+
+      // 4) Persist a minimal evaluation record so the UI has an audit trail
+      const emptyInputs: EvaluationInputs = {
+        market: {
+          now_et: options?.overrideTimeET || new Date().toLocaleTimeString('en-US', { timeZone: 'America/New_York' }),
+          underlying_price: 0,
+        },
+        account: {
+          open_positions_count: 0,
+          max_positions: stratRow.max_positions ?? 0,
+        },
+      };
+
+      const saved = await this.saveEvaluation({
+        strategyId,
+        underlying: stratRow.underlying,
+        eventType: decision === 'OPEN' ? 'entry_submitted' : 'evaluation',
+        decision,
+        reason,
+        configJson: stratRow,
+        inputsJson: emptyInputs,
+        gatesJson: [],
+        proposedOrderJson: signals[0]
+          ? {
+              legs: (signals[0].legs || []).map((l: any) => ({
+                role: 'custom',
+                option_symbol: l.symbol,
+                strike: 0,
+                delta: 0,
+                side: l.side,
+                quantity: l.quantity,
+              })),
+              estimated_credit: signals[0].expected_credit,
+            }
+          : null,
+        tradeGroupId,
+        clientRequestId: null,
+      });
+
+      return saved;
     } catch (error) {
       console.error('Error running evaluation:', error);
       return null;

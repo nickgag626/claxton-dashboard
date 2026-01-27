@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { API_BASE } from '@/services/apiBase';
 import type { Strategy, Position } from '@/types/trading';
 
 export interface TradeSignal {
@@ -78,27 +79,52 @@ export const strategyEngine = {
     error?: StrategyEngineError;
   }> {
     try {
-      const { data, error } = await supabase.functions.invoke('strategy-engine', {
-        body: {
-          action: 'evaluate',
-          strategies,
-          positions,
-        },
+      // Convert dashboard Strategy → Python StrategyConfig
+      const payloadStrategies = strategies.map((s) => ({
+        id: s.id,
+        name: s.name,
+        underlying: s.underlying,
+        enabled: s.enabled,
+        min_dte: s.entryConditions?.minDte ?? 30,
+        max_dte: s.entryConditions?.maxDte ?? 60,
+        min_credit: s.entryConditions?.minPremium ?? 0.5,
+        min_credit_percent: 10.0,
+        target_delta: s.entryConditions?.shortDeltaTarget ?? 0.16,
+        profit_target_percent: s.exitConditions?.profitTargetPercent ?? 50,
+        stop_loss_percent: s.exitConditions?.stopLossPercent ?? 200,
+        time_stop_dte: s.exitConditions?.timeStopDte ?? 7,
+        max_positions: s.maxPositions ?? 3,
+        max_risk_per_trade: s.sizing?.riskPerTrade ?? 500,
+      }));
+
+      const res = await fetch(`${API_BASE}/api/engine/evaluate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ strategies: payloadStrategies }),
       });
 
-      if (error) {
-        console.error('Error evaluating strategies:', error);
+      const json = await res.json();
+      if (!res.ok || !json?.success) {
+        const message = json?.error || `HTTP ${res.status}`;
+        console.error('Error evaluating strategies:', message);
         return {
           signals: [],
           marketState: 'error',
-          error: {
-            error: true,
-            message: error.message || 'Failed to evaluate strategies',
-            code: 'EVALUATE_ERROR',
-          },
+          error: { error: true, message, code: 'EVALUATE_ERROR' },
         };
       }
-      return data;
+
+      const data = json.data || {};
+      const signals: TradeSignal[] = (data.signals || []).map((sig: any) => ({
+        strategyName: sig.strategy_name,
+        type: 'signal',
+        underlying: sig.underlying,
+        expiration: sig.expiration,
+        credit: sig.expected_credit,
+        legs: sig.legs,
+      }));
+
+      return { signals, marketState: data.market_state || 'open' };
     } catch (error) {
       console.error('Error evaluating strategies:', error);
       return {
@@ -146,15 +172,27 @@ export const strategyEngine = {
     message?: string;
   }> {
     try {
-      const { data, error } = await supabase.functions.invoke('strategy-engine', {
-        body: {
-          action: 'execute',
-          signal,
-        },
+      const res = await fetch(`${API_BASE}/api/engine/execute`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          strategy_name: signal.strategyName,
+          underlying: signal.underlying,
+          expiration: signal.expiration,
+          legs: signal.legs,
+          expected_credit: signal.credit,
+        }),
       });
 
-      if (error) throw error;
-      return data;
+      const json = await res.json();
+      if (!res.ok || !json?.success) {
+        return { success: false, error: json?.error || `HTTP ${res.status}` };
+      }
+
+      return {
+        success: true,
+        orderId: String(json?.data?.order_id ?? ''),
+      };
     } catch (error) {
       console.error('Error executing signal:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
@@ -168,27 +206,35 @@ export const strategyEngine = {
     error?: StrategyEngineError;
   }> {
     try {
-      const { data, error } = await supabase.functions.invoke('strategy-engine', {
-        body: {
-          action: 'check_exits',
-          strategies,
-          positions,
-        },
+      // Backend check-exits endpoint currently does not need full payload from UI.
+      const res = await fetch(`${API_BASE}/api/engine/check-exits`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
       });
 
-      if (error) {
-        console.error('Error checking exits:', error);
+      const json = await res.json();
+      if (!res.ok || !json?.success) {
+        const message = json?.error || `HTTP ${res.status}`;
+        console.error('Error checking exits:', message);
         return {
           exitSignals: [],
           marketState: 'error',
-          error: {
-            error: true,
-            message: error.message || 'Failed to check exits',
-            code: 'CHECK_EXITS_ERROR',
-          },
+          error: { error: true, message, code: 'CHECK_EXITS_ERROR' },
         };
       }
-      return data;
+
+      const data = json.data || {};
+      const exitSignals: ExitSignal[] = (data.exit_signals || []).map((s: any) => ({
+        positionId: String(s.position_id),
+        symbol: String(s.symbol || ''),
+        quantity: Number(s.quantity || 0),
+        reason: (s.reason || 'profit_target') as any,
+        pnlPercent: s.pnl_percent,
+        dte: s.dte,
+      }));
+
+      return { exitSignals, marketState: 'open' };
     } catch (error) {
       console.error('Error checking exits:', error);
       return {
@@ -209,24 +255,9 @@ export const strategyEngine = {
    * If order status is 'filled' but positions not showing, waits extra 5 seconds.
    */
   async verifyFill(params: VerifyFillParams): Promise<VerifyFillResult> {
-    try {
-      const { data, error } = await supabase.functions.invoke('strategy-engine', {
-        body: {
-          action: 'verify_fill',
-          ...params,
-        },
-      });
-
-      if (error) throw error;
-      return data;
-    } catch (error) {
-      console.error('Error verifying fill:', error);
-      return { 
-        verified: false, 
-        critical: false, 
-        message: error instanceof Error ? error.message : 'Unknown error' 
-      };
-    }
+    // Deprecated path: used to call Supabase Edge Function. The EC2 engine logs fills server-side.
+    console.warn('[strategyEngine.verifyFill] Not implemented on EC2 path; returning fail-open response.');
+    return { verified: false, critical: false, message: 'verifyFill not implemented (EC2 engine path)' };
   },
 
   /**
