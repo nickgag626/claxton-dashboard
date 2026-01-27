@@ -271,10 +271,22 @@ export function useTradingData() {
         .select('*', { count: 'exact', head: true })
         .gte('entry_time', todayStart);
       
+      // Fetch realized P&L from closed trades today
+      // Only count primary leg P&L (non-zero pnl) to avoid double-counting
+      const { data: closedTrades } = await supabase
+        .from('trades')
+        .select('pnl')
+        .gte('exit_time', todayStart)
+        .not('exit_reason', 'is', null)
+        .not('pnl', 'is', null);
+      
+      const realizedPnl = (closedTrades || []).reduce((sum, t) => sum + Number(t.pnl || 0), 0);
+      
       setRiskStatus(prev => ({
         ...prev,
+        realizedPnl,
         unrealizedPnl,
-        dailyPnl: prev.realizedPnl + unrealizedPnl,
+        dailyPnl: realizedPnl + unrealizedPnl,
         tradeCount: tradesTodayCount || 0,
       }));
       
