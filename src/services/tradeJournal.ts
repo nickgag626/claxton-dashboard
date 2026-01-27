@@ -595,13 +595,15 @@ export const tradeJournal = {
     try {
       const todayStart = this.getTodayStartET();
       
+      // Use exit_time instead of close_filled_at since backend sets exit_time
       const { data, error } = await supabase
         .from('trades')
-        .select('pnl, close_filled_at, close_status, needs_reconcile')
+        .select('pnl, exit_time, close_status, needs_reconcile')
         .eq('close_status', 'filled')
         .eq('needs_reconcile', false)
         .not('pnl', 'is', null)
-        .gte('close_filled_at', todayStart);
+        .not('exit_time', 'is', null)
+        .gte('exit_time', todayStart);
 
       if (error) throw error;
 
