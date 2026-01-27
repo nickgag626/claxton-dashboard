@@ -12,6 +12,11 @@ interface StreamingStatus {
   exitsTriggered: number;
 }
 
+interface DbRealtimeStatus {
+  connected: boolean;
+  lastEventAt: Date | null;
+}
+
 interface StatusRibbonProps {
   isApiConnected: boolean;
   isQuotesLive: boolean;
@@ -23,6 +28,7 @@ interface StatusRibbonProps {
   lastUpdate: Date | null;
   lastCheckExitsTime?: Date | null;
   streamingStatus?: StreamingStatus;
+  dbRealtimeStatus?: DbRealtimeStatus;
 }
 
 export const StatusRibbon = ({
@@ -36,6 +42,7 @@ export const StatusRibbon = ({
   lastUpdate,
   lastCheckExitsTime,
   streamingStatus,
+  dbRealtimeStatus,
 }: StatusRibbonProps) => {
   // Calculate exit monitor status
   const getExitStatus = (): { variant: 'green' | 'amber' | 'red' | 'gray'; text: string } => {
@@ -96,6 +103,23 @@ export const StatusRibbon = ({
 
       <StatusBadge variant={killSwitchActive ? 'red' : 'gray'}>
         KILL:{killSwitchActive ? 'ACTIVE' : 'OFF'}
+      </StatusBadge>
+
+      {/* Supabase realtime (DB-driven) status */}
+      <StatusBadge
+        variant={
+          dbRealtimeStatus
+            ? (dbRealtimeStatus.connected ? 'green' : 'amber')
+            : 'gray'
+        }
+      >
+        DB:{(() => {
+          if (!dbRealtimeStatus) return '--';
+          if (!dbRealtimeStatus.connected) return 'DISC';
+          if (!dbRealtimeStatus.lastEventAt) return 'LIVE';
+          const ageSec = Math.floor((Date.now() - dbRealtimeStatus.lastEventAt.getTime()) / 1000);
+          return ageSec < 60 ? `LIVE+${ageSec}s` : 'LIVE';
+        })()}
       </StatusBadge>
       
       <StatusBadge variant="blue">

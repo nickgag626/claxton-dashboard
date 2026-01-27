@@ -35,6 +35,7 @@ export default function Dashboard() {
     lastUpdate,
     lastCheckExitsTime,
     streamingStatus,
+    dbRealtimeStatus,
     deltaHistory,
     pnlHistory,
     isLoading,
@@ -146,6 +147,7 @@ export default function Dashboard() {
           lastUpdate={lastUpdate}
           lastCheckExitsTime={lastCheckExitsTime}
           streamingStatus={streamingStatus}
+          dbRealtimeStatus={dbRealtimeStatus}
         />
         
         <KPIStrip

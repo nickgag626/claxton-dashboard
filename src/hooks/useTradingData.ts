@@ -89,6 +89,15 @@ export function useTradingData() {
     quotesReceived: 0,
     exitsTriggered: 0,
   });
+
+  // Supabase Realtime status (DB-driven “live” updates)
+  const [dbRealtimeStatus, setDbRealtimeStatus] = useState<{
+    connected: boolean;
+    lastEventAt: Date | null;
+  }>({
+    connected: false,
+    lastEventAt: null,
+  });
   
   // Risk state
   const [riskStatus, setRiskStatus] = useState<RiskStatus>({
@@ -122,6 +131,9 @@ export function useTradingData() {
   
   // Refs for polling
   const pollRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Refs for realtime-triggered refetch (debounced)
+  const realtimeRefetchTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   // Fetch core data
   const fetchData = useCallback(async () => {
@@ -295,6 +307,48 @@ export function useTradingData() {
       if (pollRef.current) {
         clearInterval(pollRef.current);
       }
+    };
+  }, [fetchData]);
+
+  // Realtime: when trades or position mappings change, refetch quickly
+  useEffect(() => {
+    // Debounced refetch to avoid thrashing when multiple rows change at once
+    const scheduleRefetch = () => {
+      setDbRealtimeStatus(prev => ({ ...prev, lastEventAt: new Date() }));
+
+      if (realtimeRefetchTimerRef.current) {
+        clearTimeout(realtimeRefetchTimerRef.current);
+      }
+      realtimeRefetchTimerRef.current = setTimeout(() => {
+        fetchData();
+      }, 750);
+    };
+
+    const channel = supabase
+      .channel('claxton-dashboard-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'position_group_map' },
+        () => scheduleRefetch()
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'trades' },
+        () => scheduleRefetch()
+      )
+      .subscribe((status) => {
+        // status is one of: 'SUBSCRIBED' | 'TIMED_OUT' | 'CLOSED' | 'CHANNEL_ERROR'
+        setDbRealtimeStatus(prev => ({
+          ...prev,
+          connected: status === 'SUBSCRIBED',
+        }));
+      });
+
+    return () => {
+      if (realtimeRefetchTimerRef.current) {
+        clearTimeout(realtimeRefetchTimerRef.current);
+      }
+      supabase.removeChannel(channel);
     };
   }, [fetchData]);
   
@@ -577,6 +631,7 @@ export function useTradingData() {
     isLoading,
     error,
     streamingStatus,
+    dbRealtimeStatus,
     
     // Chart data
     deltaHistory,
