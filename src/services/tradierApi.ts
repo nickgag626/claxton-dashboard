@@ -1,7 +1,7 @@
 // Tradier API service - uses Python backend at Vercel
 import type { Quote, Position, Greeks, MarketState, Strategy, TradeSafeguards } from '@/types/trading';
 
-const API_BASE = 'https://seconds-velocity-tent-marina.trycloudflare.com';
+const API_BASE = 'https://movie-parties-kong-ferry.trycloudflare.com';
 
 // Bot control types
 export interface StreamingStatus {
