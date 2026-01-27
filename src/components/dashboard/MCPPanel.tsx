@@ -153,8 +153,10 @@ export function MCPPanel() {
       
       const opportunities = recentSignals.filter(s => s.signal_type === 'opportunity');
       const trades = recentSignals.filter(s => s.signal_type === 'trade_entry');
-      const avgScore = opportunities.length > 0 
-        ? opportunities.reduce((sum, s) => sum + (s.composite_score || 0), 0) / opportunities.length
+      // Calculate avg score from all signals that have a composite_score
+      const signalsWithScore = recentSignals.filter(s => s.composite_score !== null && s.composite_score !== undefined);
+      const avgScore = signalsWithScore.length > 0 
+        ? signalsWithScore.reduce((sum, s) => sum + (s.composite_score || 0), 0) / signalsWithScore.length
         : 0;
       
       setStats({
@@ -443,7 +445,7 @@ export function MCPPanel() {
             </div>
           ) : (
             <div className="space-y-2 max-h-[400px] overflow-y-auto">
-              {signals.filter(s => s.signal_type !== 'scan').slice(0, 20).map((signal) => (
+              {signals.filter(s => s.signal_type !== 'scan' || s.signal_type === 'mcp_scan').slice(0, 20).map((signal) => (
                 <div 
                   key={signal.id} 
                   className={`flex items-start gap-3 p-3 rounded-lg border ${
@@ -465,18 +467,39 @@ export function MCPPanel() {
                       {getRegimeBadge(signal.market_regime)}
                     </div>
                     
-                    {signal.signal_type === 'opportunity' && (
+                    {(signal.composite_score !== null || signal.iv_rank !== null || signal.trend || signal.rsi_14 !== null) && (
                       <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
-                        {signal.composite_score && (
+                        {signal.trend && (
                           <div>
-                            <span className="text-muted-foreground">Score:</span>{' '}
-                            <span className="font-medium">{signal.composite_score.toFixed(1)}</span>
+                            <span className="text-muted-foreground">Trend:</span>{' '}
+                            <span className={`font-medium ${
+                              signal.trend === 'bullish' ? 'text-green-600' : 
+                              signal.trend === 'bearish' ? 'text-red-600' : ''
+                            }`}>{signal.trend}</span>
                           </div>
                         )}
-                        {signal.iv_rank && (
+                        {signal.composite_score !== null && signal.composite_score !== undefined && (
+                          <div>
+                            <span className="text-muted-foreground">Score:</span>{' '}
+                            <span className={`font-medium ${
+                              signal.composite_score > 0 ? 'text-green-600' : 
+                              signal.composite_score < 0 ? 'text-red-600' : ''
+                            }`}>{signal.composite_score > 0 ? '+' : ''}{signal.composite_score.toFixed(2)}</span>
+                          </div>
+                        )}
+                        {signal.iv_rank !== null && signal.iv_rank !== undefined && (
                           <div>
                             <span className="text-muted-foreground">IV Rank:</span>{' '}
                             <span className="font-medium">{signal.iv_rank.toFixed(0)}%</span>
+                          </div>
+                        )}
+                        {signal.rsi_14 !== null && signal.rsi_14 !== undefined && (
+                          <div>
+                            <span className="text-muted-foreground">RSI:</span>{' '}
+                            <span className={`font-medium ${
+                              signal.rsi_14 < 30 ? 'text-green-600' : 
+                              signal.rsi_14 > 70 ? 'text-red-600' : ''
+                            }`}>{signal.rsi_14.toFixed(0)}</span>
                           </div>
                         )}
                         {signal.credit && (
