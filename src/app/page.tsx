@@ -14,10 +14,11 @@ import { DataLagWarning } from '@/components/dashboard/DataLagWarning';
 import { TradeJournal } from '@/components/dashboard/TradeJournal';
 import { OptionsChain } from '@/components/dashboard/OptionsChain';
 import { RecoveryPanel } from '@/components/dashboard/RecoveryPanel';
+import { MCPPanel } from '@/components/dashboard/MCPPanel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { BookOpen, Grid3X3, Activity, AlertTriangle, RefreshCw, WifiOff, Loader2 } from 'lucide-react';
+import { BookOpen, Grid3X3, Activity, AlertTriangle, RefreshCw, WifiOff, Loader2, Brain } from 'lucide-react';
 
 export default function Dashboard() {
   const {
@@ -207,11 +208,16 @@ export default function Dashboard() {
         />
         
         <Tabs defaultValue="journal" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 max-w-lg">
+          <TabsList className="grid w-full grid-cols-5 max-w-2xl">
             <TabsTrigger value="journal" className="flex items-center gap-2">
               <BookOpen className="h-4 w-4" />
               <span className="hidden sm:inline">Trade Journal</span>
               <span className="sm:hidden">Journal</span>
+            </TabsTrigger>
+            <TabsTrigger value="mcp" className="flex items-center gap-2">
+              <Brain className="h-4 w-4" />
+              <span className="hidden sm:inline">MCP Engine</span>
+              <span className="sm:hidden">MCP</span>
             </TabsTrigger>
             <TabsTrigger value="chain" className="flex items-center gap-2">
               <Grid3X3 className="h-4 w-4" />
@@ -231,6 +237,9 @@ export default function Dashboard() {
           </TabsList>
           <TabsContent value="journal" className="mt-4">
             <TradeJournal />
+          </TabsContent>
+          <TabsContent value="mcp" className="mt-4">
+            <MCPPanel />
           </TabsContent>
           <TabsContent value="chain" className="mt-4">
             <OptionsChain />
