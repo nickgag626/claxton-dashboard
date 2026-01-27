@@ -445,7 +445,7 @@ export function MCPPanel() {
             </div>
           ) : (
             <div className="space-y-2 max-h-[400px] overflow-y-auto">
-              {signals.filter(s => s.signal_type !== 'scan' || s.signal_type === 'mcp_scan').slice(0, 20).map((signal) => (
+              {signals.filter(s => s.signal_type !== 'scan').slice(0, 20).map((signal) => (
                 <div 
                   key={signal.id} 
                   className={`flex items-start gap-3 p-3 rounded-lg border ${
