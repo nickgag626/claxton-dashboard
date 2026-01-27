@@ -4,17 +4,23 @@ import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
+import { Slider } from '@/components/ui/slider';
+import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
 import { 
   Brain, 
   RefreshCw, 
-  TrendingUp, 
-  TrendingDown, 
   Activity,
   AlertTriangle,
   CheckCircle2,
   XCircle,
   Clock,
-  Zap
+  Zap,
+  Settings,
+  TrendingUp,
+  Gauge,
+  ShieldCheck
 } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 
@@ -22,6 +28,9 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://tlilzsovehqryoyywean.supabase.co';
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRsaWx6c292ZWhxcnlveXl3ZWFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3MjEwOTQsImV4cCI6MjA4MzI5NzA5NH0.H9ke0r2KVKr0EVkk7xADf-tqkQPqpq1EJX5WP5ndEwo';
 const supabase = createClient(supabaseUrl, supabaseKey);
+
+// API base URL
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 interface MCPSignal {
   id: string;
@@ -55,19 +64,77 @@ interface MCPStats {
   last_signal_at: string;
 }
 
+interface MCPConfig {
+  enabled: boolean;
+  min_iv_rank: number;
+  skip_low_vol: boolean;
+  regime?: {
+    type: string;
+    vix: number;
+    description: string;
+  };
+}
+
 export function MCPPanel() {
   const [signals, setSignals] = useState<MCPSignal[]>([]);
   const [stats, setStats] = useState<MCPStats | null>(null);
+  const [config, setConfig] = useState<MCPConfig | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
+  
+  // Local state for editing
+  const [editEnabled, setEditEnabled] = useState(false);
+  const [editMinIVRank, setEditMinIVRank] = useState(25);
+  const [editSkipLowVol, setEditSkipLowVol] = useState(true);
 
-  const fetchData = useCallback(async () => {
+  const fetchConfig = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE}/api/mcp/status`);
+      const data = await response.json();
+      if (data.success) {
+        setConfig(data.data);
+        setEditEnabled(data.data.enabled);
+        setEditMinIVRank(data.data.min_iv_rank || 25);
+        setEditSkipLowVol(data.data.skip_low_vol ?? true);
+      }
+    } catch (err) {
+      console.error('Error fetching MCP config:', err);
+    }
+  }, []);
+
+  const saveConfig = async () => {
+    setIsSaving(true);
+    try {
+      const params = new URLSearchParams();
+      params.append('enabled', editEnabled.toString());
+      params.append('min_iv_rank', editMinIVRank.toString());
+      params.append('skip_low_vol', editSkipLowVol.toString());
+      
+      const response = await fetch(`${API_BASE}/api/mcp/configure?${params.toString()}`, {
+        method: 'POST',
+      });
+      const data = await response.json();
+      if (data.success) {
+        setConfig(data.data);
+        setShowSettings(false);
+      } else {
+        setError(data.error || 'Failed to save config');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save config');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const fetchSignals = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     
     try {
-      // Fetch recent signals
+      // Fetch recent signals from Supabase
       const { data: signalsData, error: signalsError } = await supabase
         .from('mcp_signals')
         .select('*')
@@ -98,17 +165,17 @@ export function MCPPanel() {
         last_signal_at: signalsData?.[0]?.created_at || ''
       });
       
-      setLastRefresh(new Date());
     } catch (err) {
       console.error('Error fetching MCP data:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch MCP data');
+      // Don't set error for signals - config might still work
     } finally {
       setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchData();
+    fetchConfig();
+    fetchSignals();
     
     // Subscribe to realtime updates
     const channel = supabase
@@ -122,14 +189,17 @@ export function MCPPanel() {
       )
       .subscribe();
     
-    // Refresh every 30 seconds
-    const interval = setInterval(fetchData, 30000);
+    // Refresh config every 30 seconds
+    const interval = setInterval(() => {
+      fetchConfig();
+      fetchSignals();
+    }, 30000);
     
     return () => {
       channel.unsubscribe();
       clearInterval(interval);
     };
-  }, [fetchData]);
+  }, [fetchConfig, fetchSignals]);
 
   const getSignalIcon = (type: string) => {
     switch (type) {
@@ -147,9 +217,13 @@ export function MCPPanel() {
     if (!regime) return null;
     const colors: Record<string, string> = {
       'low_vol': 'bg-green-100 text-green-800',
+      'LOW_VOL': 'bg-green-100 text-green-800',
       'normal': 'bg-blue-100 text-blue-800',
+      'NORMAL': 'bg-blue-100 text-blue-800',
       'elevated': 'bg-yellow-100 text-yellow-800',
-      'crisis': 'bg-red-100 text-red-800'
+      'ELEVATED': 'bg-yellow-100 text-yellow-800',
+      'crisis': 'bg-red-100 text-red-800',
+      'CRISIS': 'bg-red-100 text-red-800',
     };
     return (
       <Badge variant="outline" className={colors[regime] || ''}>
@@ -176,35 +250,142 @@ export function MCPPanel() {
     return `${Math.floor(diffHours / 24)}d ago`;
   };
 
-  if (error) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Brain className="h-5 w-5" />
-            MCP Smart Engine
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8 text-muted-foreground">
-            <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-yellow-500" />
-            <p className="font-medium">Unable to load MCP data</p>
-            <p className="text-sm mt-2">{error}</p>
-            <p className="text-sm mt-4">
-              Make sure the <code className="bg-muted px-1 rounded">mcp_signals</code> table exists in Supabase.
-            </p>
-            <Button variant="outline" size="sm" className="mt-4" onClick={fetchData}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Retry
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
     <div className="space-y-4">
+      {/* MCP Control Panel */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Brain className="h-5 w-5" />
+                MCP Intelligence
+              </CardTitle>
+              <CardDescription>
+                Market regime detection, IV analysis, and smart entry gating
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant={config?.enabled ? "default" : "secondary"}>
+                {config?.enabled ? "ENABLED" : "DISABLED"}
+              </Badge>
+              <Button variant="outline" size="sm" onClick={() => setShowSettings(!showSettings)}>
+                <Settings className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        
+        {showSettings && (
+          <CardContent className="border-t pt-4">
+            <div className="space-y-6">
+              {/* Master Enable/Disable */}
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="mcp-enabled" className="flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4" />
+                    MCP Intelligence Gate
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    When enabled, all entries must pass MCP checks
+                  </p>
+                </div>
+                <Switch
+                  id="mcp-enabled"
+                  checked={editEnabled}
+                  onCheckedChange={setEditEnabled}
+                />
+              </div>
+              
+              <Separator />
+              
+              {/* Min IV Rank */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="flex items-center gap-2">
+                    <Gauge className="h-4 w-4" />
+                    Minimum IV Rank
+                  </Label>
+                  <span className="font-mono text-sm font-bold">{editMinIVRank}%</span>
+                </div>
+                <Slider
+                  value={[editMinIVRank]}
+                  onValueChange={([v]) => setEditMinIVRank(v)}
+                  min={0}
+                  max={100}
+                  step={5}
+                  disabled={!editEnabled}
+                  className="w-full"
+                />
+                <p className="text-sm text-muted-foreground">
+                  Skip entries when IV rank is below this threshold (premium selling less favorable)
+                </p>
+              </div>
+              
+              <Separator />
+              
+              {/* Skip Low Vol */}
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="skip-low-vol" className="flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4" />
+                    Skip Low Volatility Regime
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    Block entries when VIX &lt; 15 (premiums too compressed)
+                  </p>
+                </div>
+                <Switch
+                  id="skip-low-vol"
+                  checked={editSkipLowVol}
+                  onCheckedChange={setEditSkipLowVol}
+                  disabled={!editEnabled}
+                />
+              </div>
+              
+              <Separator />
+              
+              {/* Save Button */}
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setShowSettings(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={saveConfig} disabled={isSaving}>
+                  {isSaving ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    'Save Changes'
+                  )}
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        )}
+        
+        {/* Current Regime Status */}
+        {config?.regime && (
+          <CardContent className={showSettings ? '' : 'pt-0'}>
+            <div className="flex items-center gap-4 p-3 rounded-lg bg-muted/50">
+              <div>
+                <p className="text-sm text-muted-foreground">Current Regime</p>
+                <div className="flex items-center gap-2 mt-1">
+                  {getRegimeBadge(config.regime.type)}
+                  <span className="text-sm">VIX: {config.regime.vix?.toFixed(1)}</span>
+                </div>
+              </div>
+              {config.regime.description && (
+                <div className="flex-1">
+                  <p className="text-sm text-muted-foreground">{config.regime.description}</p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        )}
+      </Card>
+
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card>
@@ -245,18 +426,9 @@ export function MCPPanel() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Brain className="h-5 w-5" />
-                MCP Smart Engine Activity
-              </CardTitle>
-              <CardDescription>
-                Real-time signals from IV rank, RSI, trend analysis, and market regime detection
-              </CardDescription>
-            </div>
-            <Button variant="outline" size="sm" onClick={fetchData} disabled={isLoading}>
-              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-              Refresh
+            <CardTitle className="text-base">Activity Feed</CardTitle>
+            <Button variant="ghost" size="sm" onClick={fetchSignals} disabled={isLoading}>
+              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             </Button>
           </div>
         </CardHeader>
@@ -266,12 +438,12 @@ export function MCPPanel() {
               <Brain className="h-12 w-12 mx-auto mb-4 opacity-20" />
               <p>No MCP signals yet</p>
               <p className="text-sm mt-2">
-                The MCP daemon will log signals here when it scans for opportunities.
+                Signals will appear here when the daemon scans for opportunities.
               </p>
             </div>
           ) : (
-            <div className="space-y-2 max-h-[600px] overflow-y-auto">
-              {signals.filter(s => s.signal_type !== 'scan').map((signal) => (
+            <div className="space-y-2 max-h-[400px] overflow-y-auto">
+              {signals.filter(s => s.signal_type !== 'scan').slice(0, 20).map((signal) => (
                 <div 
                   key={signal.id} 
                   className={`flex items-start gap-3 p-3 rounded-lg border ${
@@ -290,15 +462,9 @@ export function MCPPanel() {
                       <Badge variant="outline" className="text-xs">
                         {signal.signal_type.replace('_', ' ')}
                       </Badge>
-                      {signal.strategy && (
-                        <Badge variant="secondary" className="text-xs">
-                          {signal.strategy.replace('_', ' ')}
-                        </Badge>
-                      )}
                       {getRegimeBadge(signal.market_regime)}
                     </div>
                     
-                    {/* Opportunity details */}
                     {signal.signal_type === 'opportunity' && (
                       <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
                         {signal.composite_score && (
@@ -313,40 +479,17 @@ export function MCPPanel() {
                             <span className="font-medium">{signal.iv_rank.toFixed(0)}%</span>
                           </div>
                         )}
-                        {signal.prob_profit && (
-                          <div>
-                            <span className="text-muted-foreground">PoP:</span>{' '}
-                            <span className="font-medium">{signal.prob_profit.toFixed(0)}%</span>
-                          </div>
-                        )}
                         {signal.credit && (
                           <div>
                             <span className="text-muted-foreground">Credit:</span>{' '}
                             <span className="font-medium text-green-600">${signal.credit.toFixed(2)}</span>
                           </div>
                         )}
-                        {signal.short_strike && signal.long_strike && (
-                          <div className="col-span-2">
-                            <span className="text-muted-foreground">Strikes:</span>{' '}
-                            <span className="font-medium">{signal.long_strike}/{signal.short_strike}</span>
-                            {signal.expiration && (
-                              <span className="text-muted-foreground ml-2">exp {signal.expiration}</span>
-                            )}
-                          </div>
-                        )}
                       </div>
                     )}
                     
-                    {/* Skip reason */}
                     {signal.signal_type === 'skip' && signal.action_result && (
                       <p className="text-sm text-muted-foreground mt-1">{signal.action_result}</p>
-                    )}
-                    
-                    {/* Trade result */}
-                    {signal.signal_type === 'trade_entry' && (
-                      <p className="text-sm text-green-600 mt-1">
-                        ✓ Trade executed: {signal.credit && `$${signal.credit.toFixed(2)} credit`}
-                      </p>
                     )}
                   </div>
                   <div className="text-xs text-muted-foreground whitespace-nowrap">
