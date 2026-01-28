@@ -271,13 +271,14 @@ export function useTradingData() {
         .select('*', { count: 'exact', head: true })
         .gte('entry_time', todayStart);
       
-      // Fetch realized P&L from closed trades today
-      // Only count primary leg P&L (non-zero pnl) to avoid double-counting
+      // Fetch realized P&L from VERIFIED closed trades today
+      // Verified rule (matches tradeJournal.ts): close_status='filled' AND needs_reconcile=false AND pnl NOT NULL
       const { data: closedTrades } = await supabase
         .from('trades')
         .select('pnl')
         .gte('exit_time', todayStart)
-        .not('exit_reason', 'is', null)
+        .eq('close_status', 'filled')
+        .eq('needs_reconcile', false)
         .not('pnl', 'is', null);
       
       const realizedPnl = (closedTrades || []).reduce((sum, t) => sum + Number(t.pnl || 0), 0);
