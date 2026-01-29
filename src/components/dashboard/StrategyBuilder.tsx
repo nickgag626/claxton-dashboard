@@ -163,8 +163,9 @@ const STRATEGY_TYPES: { value: StrategyType; label: string; description: string;
   { value: 'credit_call_spread', label: 'Credit Call Spread', description: 'Sell Call + Buy higher strike Call (bearish)', risk: 'defined' },
   { value: 'strangle', label: 'Strangle (DISABLED)', description: 'UNLIMITED LOSS - Not available for automated trading', risk: 'undefined' },
   { value: 'straddle', label: 'Straddle (DISABLED)', description: 'UNLIMITED LOSS - Not available for automated trading', risk: 'undefined' },
-  { value: 'butterfly', label: 'Butterfly', description: 'Buy 1 lower + Sell 2 middle + Buy 1 upper (neutral, defined risk)', risk: 'defined' },
+  { value: 'butterfly', label: 'Debit Call Butterfly', description: 'Buy 1 lower call + Sell 2 middle calls + Buy 1 upper call (defined risk, debit)', risk: 'defined' },
   { value: 'iron_fly', label: 'Iron Fly', description: 'Sell ATM Put + Sell ATM Call + Buy OTM wings (neutral, defined risk)', risk: 'defined' },
+  { value: 'iron_butterfly', label: 'Iron Butterfly', description: 'Sell ATM Put + Sell ATM Call + Buy wings using the same center strike (defined risk, credit)', risk: 'defined' },
   { value: 'custom', label: 'Custom', description: 'Define your own leg structure' },
 ];
 
@@ -177,6 +178,7 @@ const MIN_PREMIUM_DEFAULTS: Record<StrategyType, number> = {
   credit_put_spread: 0.75,
   credit_call_spread: 0.75,
   butterfly: 0.50,
+  iron_butterfly: 1.00,
   strangle: 1.00,  // (disabled - undefined risk)
   straddle: 1.00,  // (disabled - undefined risk)
   custom: 0.50,
@@ -233,7 +235,7 @@ function getDefaultTrackedLegs(type: StrategyType): TrackedLeg[] {
 
 // Check if strategy type supports long delta (has wing/protective legs)
 function supportsLongDelta(type: StrategyType): boolean {
-  return ['iron_condor', 'iron_fly', 'credit_put_spread', 'credit_call_spread', 'butterfly'].includes(type);
+  return ['iron_condor', 'iron_fly', 'iron_butterfly', 'credit_put_spread', 'credit_call_spread', 'butterfly'].includes(type);
 }
 
 export const StrategyBuilder = ({ onSaveStrategy, onClose, editingStrategy }: StrategyBuilderProps) => {

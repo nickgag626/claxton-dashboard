@@ -24,12 +24,13 @@ interface StrategiesPanelProps {
 
 const strategyTypeLabels: Record<string, string> = {
   iron_condor: 'Iron Condor',
+  iron_fly: 'Iron Fly',
+  iron_butterfly: 'Iron Butterfly',
+  butterfly: 'Debit Call Butterfly',
   credit_put_spread: 'Credit Put',
   credit_call_spread: 'Credit Call',
   strangle: 'Strangle',
   straddle: 'Straddle',
-  butterfly: 'Butterfly',
-  iron_fly: 'Iron Fly',
   custom: 'Custom',
 };
 

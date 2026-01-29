@@ -73,12 +73,13 @@ export interface Strategy {
 
 export type StrategyType = 
   | 'iron_condor' 
+  | 'iron_fly'
+  | 'iron_butterfly'
+  | 'butterfly' 
   | 'credit_put_spread' 
   | 'credit_call_spread' 
   | 'strangle' 
   | 'straddle' 
-  | 'butterfly' 
-  | 'iron_fly' 
   | 'custom';
 
 export type TrackedLegRole = 'short_put' | 'long_put' | 'short_call' | 'long_call' | 'custom';
