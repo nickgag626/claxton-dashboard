@@ -517,6 +517,7 @@ export const StrategyBuilder = ({ onSaveStrategy, onClose, editingStrategy }: St
       maxDte,
       shortDeltaTarget,
       longDeltaTarget: supportsLongDelta(strategyType) ? longDeltaTarget : undefined,
+      wingWidth,
       minPremium: minPremium > 0 ? minPremium : undefined,
       minIvRank: useIvFilter ? minIvRank : undefined,
       maxIvRank: useIvFilter ? maxIvRank : undefined,

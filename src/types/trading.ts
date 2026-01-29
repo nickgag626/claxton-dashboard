@@ -119,6 +119,7 @@ export interface EntryConditions {
   // Delta targeting (replaces maxDelta)
   shortDeltaTarget: number;
   longDeltaTarget?: number;
+  wingWidth?: number;  // strike points (spread/wing distance)
   /** @deprecated Use shortDeltaTarget instead */
   maxDelta?: number;
   minPremium?: number;

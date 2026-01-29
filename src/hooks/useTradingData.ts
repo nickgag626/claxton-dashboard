@@ -175,18 +175,22 @@ export function useTradingData() {
       const apiStrategies = await botApi.getStrategies();
       if (apiStrategies.length > 0) {
         // Transform API format to dashboard format
-        const transformedStrategies: Strategy[] = apiStrategies.map((s: any) => ({
-          id: s.id,
-          name: s.name,
-          type: s.type,
-          underlying: s.underlying,
-          enabled: s.enabled,
-          maxPositions: s.max_positions,
-          positionSize: s.position_size,
-          entryConditions: s.entry_conditions || {},
-          exitConditions: s.exit_conditions || {},
-          sizing: { mode: 'fixed', fixedContracts: s.position_size || 1 },
-        }));
+        const transformedStrategies: Strategy[] = apiStrategies.map((s: any) => {
+          const sizing = s.sizing || undefined;
+          return {
+            id: s.id,
+            name: s.name,
+            type: s.type,
+            underlying: s.underlying,
+            enabled: s.enabled,
+            maxPositions: s.max_positions,
+            positionSize: s.position_size,
+            entryConditions: s.entry_conditions || {},
+            exitConditions: s.exit_conditions || {},
+            trackedLegs: s.tracked_legs || s.trackedLegs || undefined,
+            sizing: sizing || { mode: 'fixed', fixedContracts: s.position_size || 1 },
+          };
+        });
         setStrategies(transformedStrategies);
       }
       
