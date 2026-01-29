@@ -233,9 +233,11 @@ const EvaluationCard = ({ evaluation }: EvaluationCardProps) => {
                     <span className="text-muted-foreground">Δ{leg.delta?.toFixed(3)}</span>
                   </div>
                 ))}
-                {evaluation.proposed_order_json.estimated_credit && (
-                  <div className="text-trading-green">
-                    Est. Credit: ${evaluation.proposed_order_json.estimated_credit.toFixed(2)}
+                {typeof evaluation.proposed_order_json.estimated_credit === 'number' && (
+                  <div className={cn(
+                    evaluation.proposed_order_json.estimated_credit >= 0 ? 'text-trading-green' : 'text-panic-red'
+                  )}>
+                    {evaluation.proposed_order_json.estimated_credit >= 0 ? 'Est. Credit' : 'Est. Debit'}: ${Math.abs(evaluation.proposed_order_json.estimated_credit).toFixed(2)}
                   </div>
                 )}
                 {evaluation.proposed_order_json.estimated_max_loss && (

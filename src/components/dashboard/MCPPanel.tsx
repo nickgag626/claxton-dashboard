@@ -532,10 +532,10 @@ export function MCPPanel() {
                             }`}>{signal.rsi_14.toFixed(0)}</span>
                           </div>
                         )}
-                        {signal.credit && (
+                        {typeof signal.credit === 'number' && (
                           <div>
-                            <span className="text-muted-foreground">Credit:</span>{' '}
-                            <span className="font-medium text-green-600">${signal.credit.toFixed(2)}</span>
+                            <span className="text-muted-foreground">{signal.credit >= 0 ? 'Credit' : 'Debit'}:</span>{' '}
+                            <span className={`font-medium ${signal.credit >= 0 ? 'text-green-600' : 'text-red-600'}`}>${Math.abs(signal.credit).toFixed(2)}</span>
                           </div>
                         )}
                       </div>
