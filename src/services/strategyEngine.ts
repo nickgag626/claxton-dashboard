@@ -85,6 +85,9 @@ export const strategyEngine = {
         name: s.name,
         underlying: s.underlying,
         enabled: s.enabled,
+
+        // Dashboard controls strategy type (engine maps this to internal StrategyType)
+        strategy_type: s.type,
         min_dte: s.entryConditions?.minDte ?? 30,
         max_dte: s.entryConditions?.maxDte ?? 60,
         min_credit: s.entryConditions?.minPremium ?? 0.5,
