@@ -133,6 +133,18 @@ export interface EntryConditions {
   minWingWidthPoints?: number;           // Min spread width (default: 5)
   maxBidAskSpreadPerLegPercent?: number; // Per-leg liquidity (default: 15%)
   minEntryCreditDollars?: number;        // Dollar minimum (e.g., $50)
+
+  // Phase 1 LiquidityConfig (multi-factor liquidity gate)
+  // Note: maxBidAskSpreadPerLegPercent is still supported; it maps onto bid/ask spread thresholds.
+  optionVolumeMin?: number;              // Per-leg option volume minimum (default: 100)
+  openInterestMin?: number;              // Per-leg open interest minimum (default: 500)
+  maxQuoteAgeSeconds?: number;           // Quote staleness max age (default: 300)
+  underlyingVolumeMinPctOfAvg?: number;  // Underlying volume as % of average (default: 50)
+
+  // Phase 1 IVR regime gate (separate from UI IV Rank filter)
+  enableIvrGate?: boolean;               // Enable IVR regime gating
+  ivrShortPremiumMin?: number;           // Short premium allowed when IVR >= this (default: 40)
+  ivrLongPremiumMax?: number;            // Long premium allowed when IVR <= this (default: 30)
 }
 
 export interface TrailingStopConfig {

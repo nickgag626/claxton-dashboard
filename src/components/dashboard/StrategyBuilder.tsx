@@ -298,6 +298,17 @@ export const StrategyBuilder = ({ onSaveStrategy, onClose, editingStrategy }: St
   const [maxBidAskSpreadPerLegPercent, setMaxBidAskSpreadPerLegPercent] = useState<number>(15);
   const [minEntryCreditDollars, setMinEntryCreditDollars] = useState<number>(0);
 
+  // Phase 1 LiquidityConfig (multi-factor)
+  const [optionVolumeMin, setOptionVolumeMin] = useState<number>(100);
+  const [openInterestMin, setOpenInterestMin] = useState<number>(500);
+  const [maxQuoteAgeSeconds, setMaxQuoteAgeSeconds] = useState<number>(300);
+  const [underlyingVolumeMinPctOfAvg, setUnderlyingVolumeMinPctOfAvg] = useState<number>(50);
+
+  // Phase 1 IVR regime gate (separate from IV Rank filter)
+  const [enableIvrGate, setEnableIvrGate] = useState<boolean>(false);
+  const [ivrShortPremiumMin, setIvrShortPremiumMin] = useState<number>(40);
+  const [ivrLongPremiumMax, setIvrLongPremiumMax] = useState<number>(30);
+
   // Advanced exit controls
   const [profitTargetDollars, setProfitTargetDollars] = useState<number | undefined>(undefined);
   const [stopLossDollars, setStopLossDollars] = useState<number | undefined>(undefined);
@@ -364,6 +375,17 @@ export const StrategyBuilder = ({ onSaveStrategy, onClose, editingStrategy }: St
     setMinWingWidthPoints(entry.minWingWidthPoints ?? 5);
     setMaxBidAskSpreadPerLegPercent(entry.maxBidAskSpreadPerLegPercent ?? 15);
     setMinEntryCreditDollars(entry.minEntryCreditDollars ?? 0);
+
+    // Phase 1 LiquidityConfig
+    setOptionVolumeMin(entry.optionVolumeMin ?? 100);
+    setOpenInterestMin(entry.openInterestMin ?? 500);
+    setMaxQuoteAgeSeconds(entry.maxQuoteAgeSeconds ?? 300);
+    setUnderlyingVolumeMinPctOfAvg(entry.underlyingVolumeMinPctOfAvg ?? 50);
+
+    // Phase 1 IVR gate
+    setEnableIvrGate(!!entry.enableIvrGate);
+    setIvrShortPremiumMin(entry.ivrShortPremiumMin ?? 40);
+    setIvrLongPremiumMax(entry.ivrLongPremiumMax ?? 30);
 
     // Advanced exit controls
     setProfitTargetDollars(exit.profitTargetDollars);
@@ -528,6 +550,17 @@ export const StrategyBuilder = ({ onSaveStrategy, onClose, editingStrategy }: St
       minWingWidthPoints: minWingWidthPoints > 0 ? minWingWidthPoints : undefined,
       maxBidAskSpreadPerLegPercent: maxBidAskSpreadPerLegPercent > 0 ? maxBidAskSpreadPerLegPercent : undefined,
       minEntryCreditDollars: minEntryCreditDollars > 0 ? minEntryCreditDollars : undefined,
+
+      // Phase 1 LiquidityConfig (multi-factor)
+      optionVolumeMin: optionVolumeMin > 0 ? optionVolumeMin : undefined,
+      openInterestMin: openInterestMin > 0 ? openInterestMin : undefined,
+      maxQuoteAgeSeconds: maxQuoteAgeSeconds > 0 ? maxQuoteAgeSeconds : undefined,
+      underlyingVolumeMinPctOfAvg: underlyingVolumeMinPctOfAvg > 0 ? underlyingVolumeMinPctOfAvg : undefined,
+
+      // Phase 1 IVR regime gate
+      enableIvrGate,
+      ivrShortPremiumMin: enableIvrGate ? ivrShortPremiumMin : undefined,
+      ivrLongPremiumMax: enableIvrGate ? ivrLongPremiumMax : undefined,
     };
 
     const trailingStopConfig: TrailingStopConfig | undefined = useTrailingStop ? {
@@ -1017,6 +1050,134 @@ export const StrategyBuilder = ({ onSaveStrategy, onClose, editingStrategy }: St
               <div className="text-[10px] text-muted-foreground italic">
                 Set to 0 to disable filter. Wing width prevents degenerate 1-wide structures.
               </div>
+            </div>
+
+            {/* Phase 1 Liquidity Gate (multi-factor) */}
+            <div className="space-y-3 p-3 bg-secondary/20 rounded-md">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs text-bloomberg-amber font-medium flex items-center gap-1">
+                  Phase 1 Liquidity Gate
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Info className="w-3 h-3 text-muted-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="text-xs">Multi-factor checks: spread + option volume + open interest + quote freshness (+ underlying volume when available)</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </Label>
+              </div>
+
+              <div className="grid grid-cols-4 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-muted-foreground">Min Option Vol</Label>
+                  <Input
+                    type="number"
+                    value={optionVolumeMin}
+                    onChange={(e) => setOptionVolumeMin(parseInt(e.target.value) || 0)}
+                    min={0}
+                    className="bg-secondary/50 border-border text-xs h-8"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-muted-foreground">Min OI</Label>
+                  <Input
+                    type="number"
+                    value={openInterestMin}
+                    onChange={(e) => setOpenInterestMin(parseInt(e.target.value) || 0)}
+                    min={0}
+                    className="bg-secondary/50 border-border text-xs h-8"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-muted-foreground">Max Quote Age (s)</Label>
+                  <Input
+                    type="number"
+                    value={maxQuoteAgeSeconds}
+                    onChange={(e) => setMaxQuoteAgeSeconds(parseInt(e.target.value) || 0)}
+                    min={0}
+                    className="bg-secondary/50 border-border text-xs h-8"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-muted-foreground">Min UND Vol (% avg)</Label>
+                  <Input
+                    type="number"
+                    value={underlyingVolumeMinPctOfAvg}
+                    onChange={(e) => setUnderlyingVolumeMinPctOfAvg(parseInt(e.target.value) || 0)}
+                    min={0}
+                    max={200}
+                    className="bg-secondary/50 border-border text-xs h-8"
+                  />
+                </div>
+              </div>
+
+              <div className="text-[10px] text-muted-foreground italic">
+                Spread threshold uses the existing “Max Leg Spread (%)” field above.
+              </div>
+            </div>
+
+            {/* Phase 1 IVR Regime Gate */}
+            <div className="space-y-3 p-3 bg-secondary/20 rounded-md">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs text-bloomberg-amber font-medium flex items-center gap-1">
+                  IVR Regime Gate (Phase 1)
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Info className="w-3 h-3 text-muted-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="text-xs">This is separate from the dashboard IV Rank filter. IVR gate controls when short vs long premium strategies are allowed.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </Label>
+
+                <div className="flex items-center gap-2">
+                  <Label className="text-[10px] text-muted-foreground">Enable</Label>
+                  <Switch checked={enableIvrGate} onCheckedChange={setEnableIvrGate} />
+                </div>
+              </div>
+
+              <AnimatePresence>
+                {enableIvrGate && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="grid grid-cols-2 gap-3"
+                  >
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">Short Premium Min IVR</Label>
+                      <Input
+                        type="number"
+                        value={ivrShortPremiumMin}
+                        onChange={(e) => setIvrShortPremiumMin(parseInt(e.target.value) || 0)}
+                        min={0}
+                        max={100}
+                        className="bg-secondary/50 border-border text-xs h-8"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">Long Premium Max IVR</Label>
+                      <Input
+                        type="number"
+                        value={ivrLongPremiumMax}
+                        onChange={(e) => setIvrLongPremiumMax(parseInt(e.target.value) || 0)}
+                        min={0}
+                        max={100}
+                        className="bg-secondary/50 border-border text-xs h-8"
+                      />
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
             {/* Tracked Legs */}
