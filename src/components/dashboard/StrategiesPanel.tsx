@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Settings, ChevronRight, Plus, Trash2, Activity, RefreshCw, Pencil } from 'lucide-react';
+import { Settings, ChevronRight, Plus, Trash2, Activity, RefreshCw, Pencil, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { StrategyBuilder } from './StrategyBuilder';
 import { StrategyEvaluationPanel } from './StrategyEvaluationPanel';
@@ -13,6 +13,8 @@ import type { Strategy } from '@/types/trading';
 import { evaluationService } from '@/services/evaluationService';
 import type { StrategyEvaluation } from '@/types/evaluation';
 import { format } from 'date-fns';
+import { strategyEngine, type EngineEvaluation } from '@/services/strategyEngine';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface StrategiesPanelProps {
   strategies: Strategy[];
@@ -26,6 +28,7 @@ const strategyTypeLabels: Record<string, string> = {
   iron_condor: 'Iron Condor',
   credit_put_spread: 'Credit Put',
   credit_call_spread: 'Credit Call',
+  wheel: 'Wheel',
   strangle: 'Strangle',
   straddle: 'Straddle',
   butterfly: 'Butterfly',
@@ -44,8 +47,10 @@ export const StrategiesPanel = ({
   const [editingStrategy, setEditingStrategy] = useState<Strategy | null>(null);
   const [expandedStrategy, setExpandedStrategy] = useState<string | null>(null);
   const [latestEvaluations, setLatestEvaluations] = useState<Record<string, StrategyEvaluation>>({});
+  const [engineEvaluations, setEngineEvaluations] = useState<Record<string, EngineEvaluation>>({});
+  const [isEngineRefreshing, setIsEngineRefreshing] = useState(false);
 
-  // Load latest evaluations for all strategies
+  // Load latest evaluations for all strategies (audit trail, from Supabase)
   useEffect(() => {
     const loadEvaluations = async () => {
       const evals: Record<string, StrategyEvaluation> = {};
@@ -58,6 +63,27 @@ export const StrategiesPanel = ({
       setLatestEvaluations(evals);
     };
     loadEvaluations();
+  }, [strategies]);
+
+  // Load current engine evaluation metadata (wheel state + corporate/regime context)
+  const refreshEngineEvaluations = async () => {
+    if (!strategies || strategies.length === 0) return;
+    setIsEngineRefreshing(true);
+    try {
+      const res = await strategyEngine.evaluateStrategies(strategies, []);
+      const evals: Record<string, EngineEvaluation> = {};
+      (res.evaluations || []).forEach((e) => {
+        if (e?.strategy_id) evals[e.strategy_id] = e;
+      });
+      setEngineEvaluations(evals);
+    } finally {
+      setIsEngineRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshEngineEvaluations();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [strategies]);
 
   const handleSaveStrategy = (strategy: Omit<Strategy, 'id'>) => {
@@ -106,22 +132,34 @@ export const StrategiesPanel = ({
             <Settings className="w-3 h-3" />
             Trading Strategies
           </div>
-          <Button 
-            variant="secondary" 
-            size="sm" 
-            onClick={() => {
-              if (showBuilder) {
-                handleCloseBuilder();
-              } else {
-                setEditingStrategy(null);
-                setShowBuilder(true);
-              }
-            }}
-            className="text-xs"
-          >
-            <Plus className="w-3 h-3 mr-1" />
-            {showBuilder ? 'Hide Builder' : 'New Strategy'}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => refreshEngineEvaluations()}
+              className="text-xs"
+              disabled={isEngineRefreshing}
+              title="Refresh engine context"
+            >
+              <RefreshCw className={cn("w-3 h-3", isEngineRefreshing && "animate-spin")} />
+            </Button>
+            <Button 
+              variant="secondary" 
+              size="sm" 
+              onClick={() => {
+                if (showBuilder) {
+                  handleCloseBuilder();
+                } else {
+                  setEditingStrategy(null);
+                  setShowBuilder(true);
+                }
+              }}
+              className="text-xs"
+            >
+              <Plus className="w-3 h-3 mr-1" />
+              {showBuilder ? 'Hide Builder' : 'New Strategy'}
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -144,7 +182,19 @@ export const StrategiesPanel = ({
           <div className="space-y-2">
             {strategies.map((strategy, index) => {
               const latestEval = latestEvaluations[strategy.id];
-              
+              const engineEval = engineEvaluations[strategy.id];
+
+              const wheelState = engineEval?.current_state;
+              const corp = engineEval?.corporate_context;
+              const warningText = (() => {
+                if (!corp?.warning) return null;
+                const dte = corp?.days_to_earnings;
+                const dtd = corp?.days_to_ex_dividend;
+                if (corp?.warnings?.includes('EARNINGS_SOON') && typeof dte === 'number') return `Earnings in ${dte} days`;
+                if (corp?.warnings?.includes('DIVIDEND_SOON') && typeof dtd === 'number') return `Ex-dividend in ${dtd} days`;
+                return 'Corporate event soon';
+              })();
+
               return (
                 <motion.div
                   key={strategy.id}
@@ -176,6 +226,38 @@ export const StrategiesPanel = ({
                           >
                             {strategyTypeLabels[strategy.type] || strategy.type}
                           </Badge>
+
+                          {/* Phase 4: Wheel state badge */}
+                          {strategy.type === 'wheel' && wheelState && (
+                            <Badge
+                              variant="secondary"
+                              className={cn(
+                                "text-[9px] px-1.5 py-0 border",
+                                wheelState === 'SEARCHING_FOR_PUTS'
+                                  ? 'bg-trading-green/20 text-trading-green border-trading-green/30'
+                                  : 'bg-bloomberg-blue/20 text-bloomberg-blue border-bloomberg-blue/30'
+                              )}
+                            >
+                              {wheelState === 'SEARCHING_FOR_PUTS' ? 'Searching Puts' : 'Selling Calls'}
+                            </Badge>
+                          )}
+
+                          {/* Phase 4: Corporate warning icon */}
+                          {warningText && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="inline-flex items-center">
+                                    <AlertTriangle className="w-3 h-3 text-bloomberg-amber" />
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="text-xs">
+                                  {warningText}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+
                           {strategy.entryConditions.minDte === 0 && strategy.entryConditions.maxDte === 0 && (
                             <Badge 
                               variant="secondary" 
@@ -184,6 +266,14 @@ export const StrategiesPanel = ({
                               0DTE
                             </Badge>
                           )}
+
+                          {/* Basis label (Wheel, shares held) */}
+                          {strategy.type === 'wheel' && wheelState === 'HELD_SHARES_SELLING_CALLS' && typeof engineEval?.adjusted_cost_basis === 'number' && (
+                            <span className="text-[9px] text-muted-foreground font-mono">
+                              Basis: <span className="text-foreground">${engineEval.adjusted_cost_basis.toFixed(2)}</span>
+                            </span>
+                          )}
+
                           {/* Last Decision Badge */}
                           {latestEval && (
                             <Badge 
@@ -256,6 +346,60 @@ export const StrategiesPanel = ({
                         strategyId={strategy.id} 
                         strategyName={strategy.name}
                       />
+
+                      {/* Phase 4: Corporate + Regime widgets */}
+                      {(engineEval?.corporate_context || engineEval?.regime_metrics) && (
+                        <div className="grid grid-cols-2 gap-4">
+                          {/* Corporate Events */}
+                          <div className="border border-border rounded-lg p-3 bg-secondary/20">
+                            <div className="text-[10px] text-bloomberg-amber uppercase tracking-wider mb-2">Corporate Events</div>
+                            <div className="space-y-1 text-xs text-muted-foreground font-mono">
+                              <div className="flex justify-between">
+                                <span>Earnings:</span>
+                                <span className="text-foreground">
+                                  {engineEval?.corporate_context?.next_earnings_date || '—'}
+                                  {typeof engineEval?.corporate_context?.days_to_earnings === 'number' && (
+                                    <span className="text-muted-foreground"> ({engineEval.corporate_context.days_to_earnings}d)</span>
+                                  )}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Ex-Div:</span>
+                                <span className="text-foreground">
+                                  {engineEval?.corporate_context?.ex_dividend_date || '—'}
+                                  {typeof engineEval?.corporate_context?.days_to_ex_dividend === 'number' && (
+                                    <span className="text-muted-foreground"> ({engineEval.corporate_context.days_to_ex_dividend}d)</span>
+                                  )}
+                                </span>
+                              </div>
+                              {engineEval?.corporate_context?.warning && (
+                                <div className="text-[10px] text-bloomberg-amber mt-1">
+                                  Warning: {(engineEval.corporate_context.warnings || []).join(', ') || 'event soon'}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Market Context */}
+                          <div className="border border-border rounded-lg p-3 bg-secondary/20">
+                            <div className="text-[10px] text-bloomberg-amber uppercase tracking-wider mb-2">Market Context</div>
+                            <div className="grid grid-cols-3 gap-2 text-xs font-mono">
+                              <div className="text-muted-foreground">
+                                <div className="text-[9px] text-muted-foreground/70">ADX</div>
+                                <div className="text-foreground">{engineEval?.regime_metrics?.adx_value?.toFixed?.(1) ?? engineEval?.regime_metrics?.adx_value ?? '—'}</div>
+                              </div>
+                              <div className="text-muted-foreground">
+                                <div className="text-[9px] text-muted-foreground/70">Trend</div>
+                                <div className="text-foreground">{engineEval?.regime_metrics?.trend_status ?? '—'}</div>
+                              </div>
+                              <div className="text-muted-foreground">
+                                <div className="text-[9px] text-muted-foreground/70">VRP Δ</div>
+                                <div className="text-foreground">{engineEval?.regime_metrics?.vrp_delta?.toFixed?.(3) ?? engineEval?.regime_metrics?.vrp_delta ?? '—'}</div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                       
                       <div className="grid grid-cols-3 gap-4 text-xs">
                         <div>

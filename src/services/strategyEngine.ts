@@ -72,9 +72,37 @@ export interface StrategyEngineError {
   code?: string;
 }
 
+export interface CorporateContext {
+  next_earnings_date: string | null;
+  ex_dividend_date: string | null;
+  days_to_earnings: number | null;
+  days_to_ex_dividend: number | null;
+  warning: boolean;
+  warnings: string[];
+  earnings_window_days?: number | null;
+  dividend_window_days?: number | null;
+}
+
+export interface EngineEvaluation {
+  strategy_id: string;
+  strategy_name: string;
+  strategy_type: string;
+  underlying: string;
+  passed: boolean;
+  failed_stage: string | null;
+  failed_reason: string | null;
+  regime_metrics?: Record<string, any> | null;
+  corporate_context?: CorporateContext | null;
+  corporate_guard?: Record<string, any> | null;
+  current_state?: string | null;
+  adjusted_cost_basis?: number | null;
+  total_premiums_usd?: number | null;
+}
+
 export const strategyEngine = {
   async evaluateStrategies(strategies: Strategy[], positions: Position[]): Promise<{
     signals: TradeSignal[];
+    evaluations: EngineEvaluation[];
     marketState: string;
     error?: StrategyEngineError;
   }> {
@@ -85,6 +113,7 @@ export const strategyEngine = {
         name: s.name,
         underlying: s.underlying,
         enabled: s.enabled,
+        strategy_type: s.type,
         min_dte: s.entryConditions?.minDte ?? 30,
         max_dte: s.entryConditions?.maxDte ?? 60,
         min_credit: s.entryConditions?.minPremium ?? 0.5,
@@ -95,6 +124,9 @@ export const strategyEngine = {
         time_stop_dte: s.exitConditions?.timeStopDte ?? 7,
         max_positions: s.maxPositions ?? 3,
         max_risk_per_trade: s.sizing?.riskPerTrade ?? 500,
+
+        // Phase 4 wheel config (optional)
+        wheel_config: s.type === 'wheel' ? (s.entryConditions?.wheelConfig || undefined) : undefined,
       }));
 
       const res = await fetch(`${API_BASE}/api/engine/evaluate`, {
@@ -109,6 +141,7 @@ export const strategyEngine = {
         console.error('Error evaluating strategies:', message);
         return {
           signals: [],
+          evaluations: [],
           marketState: 'error',
           error: { error: true, message, code: 'EVALUATE_ERROR' },
         };
@@ -124,11 +157,14 @@ export const strategyEngine = {
         legs: sig.legs,
       }));
 
-      return { signals, marketState: data.market_state || 'open' };
+      const evaluations: EngineEvaluation[] = (data.evaluations || []) as EngineEvaluation[];
+
+      return { signals, evaluations, marketState: data.market_state || 'open' };
     } catch (error) {
       console.error('Error evaluating strategies:', error);
       return {
         signals: [],
+        evaluations: [],
         marketState: 'error',
         error: {
           error: true,

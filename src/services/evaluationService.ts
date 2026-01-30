@@ -106,6 +106,7 @@ export const evaluationService = {
           name: stratRow.name,
           underlying: stratRow.underlying,
           enabled: stratRow.enabled,
+          strategy_type: stratRow.type ?? stratRow.strategy_type ?? 'iron_condor',
           min_dte: stratRow.entry_conditions?.minDte ?? 30,
           max_dte: stratRow.entry_conditions?.maxDte ?? 60,
           min_credit: stratRow.entry_conditions?.minPremium ?? 0.5,
@@ -116,6 +117,10 @@ export const evaluationService = {
           time_stop_dte: stratRow.exit_conditions?.timeStopDte ?? 7,
           max_positions: stratRow.max_positions ?? 3,
           max_risk_per_trade: (stratRow.entry_conditions?.sizing?.riskPerTrade) ?? 500,
+
+          wheel_config: (stratRow.type === 'wheel' || stratRow.strategy_type === 'wheel')
+            ? (stratRow.entry_conditions?.wheelConfig ?? undefined)
+            : undefined,
         },
       ];
 
@@ -127,13 +132,21 @@ export const evaluationService = {
 
       const evalJson = await evalRes.json();
       const signals = evalJson?.success ? (evalJson?.data?.signals || []) : [];
+      const engineEval = evalJson?.success ? (evalJson?.data?.evaluations?.[0] || null) : null;
 
       // 3) If we got a signal, execute it immediately
       let decision: Decision = 'SKIP';
       let reason = 'no_signal';
       let tradeGroupId: string | null = null;
 
-      if (signals.length > 0) {
+      // If pipeline failed, reflect that in the audit trail (esp. corporate guard)
+      if (engineEval && engineEval.passed === false) {
+        decision = 'FAIL';
+        // Prefer corporate_guard.message if present
+        reason = engineEval?.corporate_guard?.message || engineEval?.failed_reason || 'pipeline_failed';
+      }
+
+      if (signals.length > 0 && decision !== 'FAIL') {
         const sig = signals[0];
         const execRes = await fetch(`${API_BASE}/api/engine/execute`, {
           method: 'POST',
@@ -163,12 +176,33 @@ export const evaluationService = {
         market: {
           now_et: options?.overrideTimeET || new Date().toLocaleTimeString('en-US', { timeZone: 'America/New_York' }),
           underlying_price: 0,
+          // Phase 4 context snapshots (best-effort, for UI)
+          iv_value: engineEval?.regime_metrics?.iv_current ?? undefined,
         },
         account: {
           open_positions_count: 0,
           max_positions: stratRow.max_positions ?? 0,
         },
       };
+
+      const gatesJson = engineEval
+        ? [
+            {
+              name: 'G_corporate_guard',
+              expected: 'No earnings/dividend risk window',
+              actual: engineEval?.corporate_guard || engineEval?.corporate_context || {},
+              pass: engineEval?.failed_stage !== 'G_corporate_guard',
+              reason: engineEval?.corporate_guard?.message || engineEval?.failed_reason || undefined,
+            },
+            {
+              name: 'E_regime_ivr_vix',
+              expected: 'Regime OK',
+              actual: engineEval?.regime_metrics || {},
+              pass: engineEval?.failed_stage !== 'E_regime_ivr_vix',
+              reason: engineEval?.failed_stage === 'E_regime_ivr_vix' ? engineEval?.failed_reason : undefined,
+            },
+          ]
+        : [];
 
       const saved = await this.saveEvaluation({
         strategyId,
@@ -178,11 +212,11 @@ export const evaluationService = {
         reason,
         configJson: stratRow,
         inputsJson: emptyInputs,
-        gatesJson: [],
+        gatesJson,
         proposedOrderJson: signals[0]
           ? {
               legs: (signals[0].legs || []).map((l: any) => ({
-                role: 'custom',
+                role: l.role || 'custom',
                 option_symbol: l.symbol,
                 strike: 0,
                 delta: 0,

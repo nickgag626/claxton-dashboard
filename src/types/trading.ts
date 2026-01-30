@@ -75,6 +75,7 @@ export type StrategyType =
   | 'iron_condor' 
   | 'credit_put_spread' 
   | 'credit_call_spread' 
+  | 'wheel'
   | 'strangle' 
   | 'straddle' 
   | 'butterfly' 
@@ -113,12 +114,23 @@ export interface MAFilter {
   rules: MAFilterRule[];
 }
 
+export interface WheelConfig {
+  put_delta_target: number;
+  put_dte: number;
+  call_delta_target: number;
+  call_delta_strong_up: number;
+  call_dte: number;
+}
+
 export interface EntryConditions {
   minDte: number;
   maxDte: number;
   // Delta targeting (replaces maxDelta)
   shortDeltaTarget: number;
   longDeltaTarget?: number;
+
+  // Phase 4: Wheel config (only used when strategy type === 'wheel')
+  wheelConfig?: WheelConfig;
   wingWidth?: number;  // strike points (spread/wing distance)
   /** @deprecated Use shortDeltaTarget instead */
   maxDelta?: number;

@@ -161,6 +161,7 @@ const STRATEGY_TYPES: { value: StrategyType; label: string; description: string;
   { value: 'iron_condor', label: 'Iron Condor', description: 'Sell OTM Put + Buy further OTM Put + Sell OTM Call + Buy further OTM Call', risk: 'defined' },
   { value: 'credit_put_spread', label: 'Credit Put Spread', description: 'Sell Put + Buy lower strike Put (bullish)', risk: 'defined' },
   { value: 'credit_call_spread', label: 'Credit Call Spread', description: 'Sell Call + Buy higher strike Call (bearish)', risk: 'defined' },
+  { value: 'wheel', label: 'Wheel', description: 'Cash-secured puts until assigned, then covered calls', risk: 'defined' },
   { value: 'strangle', label: 'Strangle (DISABLED)', description: 'UNLIMITED LOSS - Not available for automated trading', risk: 'undefined' },
   { value: 'straddle', label: 'Straddle (DISABLED)', description: 'UNLIMITED LOSS - Not available for automated trading', risk: 'undefined' },
   { value: 'butterfly', label: 'Butterfly', description: 'Buy 1 lower + Sell 2 middle + Buy 1 upper (neutral, defined risk)', risk: 'defined' },
@@ -176,6 +177,7 @@ const MIN_PREMIUM_DEFAULTS: Record<StrategyType, number> = {
   iron_fly: 3.00,
   credit_put_spread: 0.75,
   credit_call_spread: 0.75,
+  wheel: 0.50,
   butterfly: 0.50,
   strangle: 1.00,  // (disabled - undefined risk)
   straddle: 1.00,  // (disabled - undefined risk)
@@ -236,6 +238,10 @@ function supportsLongDelta(type: StrategyType): boolean {
   return ['iron_condor', 'iron_fly', 'credit_put_spread', 'credit_call_spread', 'butterfly'].includes(type);
 }
 
+function isWheel(type: StrategyType): boolean {
+  return type === 'wheel';
+}
+
 export const StrategyBuilder = ({ onSaveStrategy, onClose, editingStrategy }: StrategyBuilderProps) => {
   const isEditing = !!editingStrategy;
   
@@ -249,6 +255,13 @@ export const StrategyBuilder = ({ onSaveStrategy, onClose, editingStrategy }: St
   // Entry conditions
   const [minDte, setMinDte] = useState(0);
   const [maxDte, setMaxDte] = useState(0);
+
+  // Phase 4: Wheel config
+  const [wheelPutDelta, setWheelPutDelta] = useState(0.25);
+  const [wheelPutDte, setWheelPutDte] = useState(45);
+  const [wheelCallDelta, setWheelCallDelta] = useState(0.30);
+  const [wheelCallDeltaStrongUp, setWheelCallDeltaStrongUp] = useState(0.15);
+  const [wheelCallDte, setWheelCallDte] = useState(14);
   const [shortDeltaTarget, setShortDeltaTarget] = useState(0.10);
   const [longDeltaTarget, setLongDeltaTarget] = useState(0.05);
   const [wingWidth, setWingWidth] = useState(10);
@@ -328,6 +341,15 @@ export const StrategyBuilder = ({ onSaveStrategy, onClose, editingStrategy }: St
     // Entry conditions
     setMinDte(entry.minDte);
     setMaxDte(entry.maxDte);
+
+    // Wheel config
+    if (s.type === 'wheel' && entry.wheelConfig) {
+      setWheelPutDelta(entry.wheelConfig.put_delta_target ?? 0.25);
+      setWheelPutDte(entry.wheelConfig.put_dte ?? 45);
+      setWheelCallDelta(entry.wheelConfig.call_delta_target ?? 0.30);
+      setWheelCallDeltaStrongUp(entry.wheelConfig.call_delta_strong_up ?? 0.15);
+      setWheelCallDte(entry.wheelConfig.call_dte ?? 14);
+    }
     setIs0dte(entry.minDte === 0 && entry.maxDte === 0);
     setShortDeltaTarget(entry.shortDeltaTarget ?? entry.maxDelta ?? 0.10);
     setLongDeltaTarget(entry.longDeltaTarget ?? 0.05);
@@ -390,6 +412,14 @@ export const StrategyBuilder = ({ onSaveStrategy, onClose, editingStrategy }: St
   // Update tracked legs when strategy type changes
   useEffect(() => {
     setTrackedLegs(getDefaultTrackedLegs(strategyType));
+
+    // Sensible defaults for wheel so both CC (14d) and CSP (45d) expirations are in range.
+    if (!editingStrategy && strategyType === 'wheel') {
+      setMinDte(7);
+      setMaxDte(60);
+      setShortDeltaTarget(0.25);
+      setMinPremium(0.50);
+    }
   }, [strategyType]);
 
   // Update long delta when short delta changes (default to half)
@@ -525,6 +555,16 @@ export const StrategyBuilder = ({ onSaveStrategy, onClose, editingStrategy }: St
       startTime: marketHoursOnly ? startTime : undefined,
       endTime: marketHoursOnly ? endTime : undefined,
       maFilter: useMaFilter ? maFilter : undefined,
+
+      // Phase 4: Wheel config (only relevant for wheel)
+      wheelConfig: isWheel(strategyType) ? {
+        put_delta_target: wheelPutDelta,
+        put_dte: wheelPutDte,
+        call_delta_target: wheelCallDelta,
+        call_delta_strong_up: wheelCallDeltaStrongUp,
+        call_dte: wheelCallDte,
+      } : undefined,
+
       // Advanced entry filters
       minWingWidthPoints: minWingWidthPoints > 0 ? minWingWidthPoints : undefined,
       maxBidAskSpreadPerLegPercent: maxBidAskSpreadPerLegPercent > 0 ? maxBidAskSpreadPerLegPercent : undefined,
@@ -843,6 +883,62 @@ export const StrategyBuilder = ({ onSaveStrategy, onClose, editingStrategy }: St
                     className="bg-secondary/50 border-border text-xs h-8"
                   />
                 </div>
+
+                {isWheel(strategyType) && (
+                  <div className="mt-2 border border-border rounded p-2 bg-background/30 space-y-2">
+                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Wheel Config</div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-[10px] text-muted-foreground">CSP Δ</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={wheelPutDelta}
+                          onChange={(e) => setWheelPutDelta(parseFloat(e.target.value) || 0)}
+                          className="bg-secondary/50 border-border text-xs h-8"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] text-muted-foreground">CSP DTE</Label>
+                        <Input
+                          type="number"
+                          value={wheelPutDte}
+                          onChange={(e) => setWheelPutDte(parseInt(e.target.value) || 0)}
+                          className="bg-secondary/50 border-border text-xs h-8"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] text-muted-foreground">CC Δ</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={wheelCallDelta}
+                          onChange={(e) => setWheelCallDelta(parseFloat(e.target.value) || 0)}
+                          className="bg-secondary/50 border-border text-xs h-8"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] text-muted-foreground">CC DTE</Label>
+                        <Input
+                          type="number"
+                          value={wheelCallDte}
+                          onChange={(e) => setWheelCallDte(parseInt(e.target.value) || 0)}
+                          className="bg-secondary/50 border-border text-xs h-8"
+                        />
+                      </div>
+                      <div className="space-y-1 col-span-2">
+                        <Label className="text-[10px] text-muted-foreground">CC Δ (Strong Uptrend)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={wheelCallDeltaStrongUp}
+                          onChange={(e) => setWheelCallDeltaStrongUp(parseFloat(e.target.value) || 0)}
+                          className="bg-secondary/50 border-border text-xs h-8"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* IV & Premium */}
