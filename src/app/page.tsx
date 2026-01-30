@@ -15,11 +15,11 @@ import { TradeJournal } from '@/components/dashboard/TradeJournal';
 import { OptionsChain } from '@/components/dashboard/OptionsChain';
 import { RecoveryPanel } from '@/components/dashboard/RecoveryPanel';
 import { MCPPanel } from '@/components/dashboard/MCPPanel';
+import { RiskBook } from '@/components/dashboard/RiskBook';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { BookOpen, Grid3X3, Activity, AlertTriangle, RefreshCw, WifiOff, Loader2, Brain, FlaskConical } from 'lucide-react';
-import { BacktestPanel } from '@/components/dashboard/BacktestPanel';
+import { BookOpen, Grid3X3, Activity, AlertTriangle, RefreshCw, WifiOff, Loader2, Brain, Shield } from 'lucide-react';
 
 export default function Dashboard() {
   const {
@@ -227,6 +227,11 @@ export default function Dashboard() {
               <span className="hidden sm:inline">Options Chain</span>
               <span className="sm:hidden">Chain</span>
             </TabsTrigger>
+            <TabsTrigger value="riskbook" className="flex items-center gap-2">
+              <Shield className="h-4 w-4" />
+              <span className="hidden sm:inline">Risk Book</span>
+              <span className="sm:hidden">Risk</span>
+            </TabsTrigger>
             <TabsTrigger value="recovery" className="flex items-center gap-2">
               <AlertTriangle className="h-4 w-4" />
               <span className="hidden sm:inline">Recovery</span>
@@ -236,11 +241,6 @@ export default function Dashboard() {
               <Activity className="h-4 w-4" />
               <span className="hidden sm:inline">Activity Log</span>
               <span className="sm:hidden">Activity</span>
-            </TabsTrigger>
-            <TabsTrigger value="backtest" className="flex items-center gap-2">
-              <FlaskConical className="h-4 w-4" />
-              <span className="hidden sm:inline">Backtest</span>
-              <span className="sm:hidden">BT</span>
             </TabsTrigger>
           </TabsList>
           <TabsContent value="journal" className="mt-4">
@@ -252,14 +252,14 @@ export default function Dashboard() {
           <TabsContent value="chain" className="mt-4">
             <OptionsChain />
           </TabsContent>
+          <TabsContent value="riskbook" className="mt-4">
+            <RiskBook />
+          </TabsContent>
           <TabsContent value="recovery" className="mt-4">
             <RecoveryPanel onRefresh={refetch} />
           </TabsContent>
           <TabsContent value="activity" className="mt-4">
             <ActivityLog events={activity} onClearHistory={clearHistory} />
-          </TabsContent>
-          <TabsContent value="backtest" className="mt-4">
-            <BacktestPanel />
           </TabsContent>
         </Tabs>
       </div>
