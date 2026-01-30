@@ -153,8 +153,10 @@ export function MCPPanel() {
       
       const opportunities = recentSignals.filter(s => s.signal_type === 'opportunity');
       const trades = recentSignals.filter(s => s.signal_type === 'trade_entry');
-      const avgScore = opportunities.length > 0 
-        ? opportunities.reduce((sum, s) => sum + (s.composite_score || 0), 0) / opportunities.length
+      // Calculate avg score from all signals that have a composite_score
+      const signalsWithScore = recentSignals.filter(s => s.composite_score !== null && s.composite_score !== undefined);
+      const avgScore = signalsWithScore.length > 0 
+        ? signalsWithScore.reduce((sum, s) => sum + (s.composite_score || 0), 0) / signalsWithScore.length
         : 0;
       
       setStats({
@@ -386,30 +388,54 @@ export function MCPPanel() {
         )}
       </Card>
 
+      {/* How It Works */}
+      <Card className="border-dashed">
+        <CardContent className="pt-4">
+          <div className="flex items-start gap-3">
+            <Activity className="h-5 w-5 text-muted-foreground mt-0.5" />
+            <div className="space-y-2 text-sm text-muted-foreground">
+              <p>
+                <strong className="text-foreground">MCP Intelligence</strong> analyzes market conditions before allowing trades. 
+                It scans IV rank, RSI, trend direction, and VIX regime to score each underlying.
+              </p>
+              <p>
+                When <strong className="text-foreground">enabled</strong>, the bot will only enter positions that pass the configured 
+                thresholds (IV rank, volatility regime). When <strong className="text-foreground">disabled</strong>, all strategy 
+                entries proceed without MCP filtering.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card>
           <CardContent className="pt-4">
             <div className="text-2xl font-bold">{stats?.signals_24h || 0}</div>
             <p className="text-xs text-muted-foreground">Scans (24h)</p>
+            <p className="text-xs text-muted-foreground/60 mt-1">Market analyses run</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
             <div className="text-2xl font-bold text-yellow-600">{stats?.opportunities_24h || 0}</div>
             <p className="text-xs text-muted-foreground">Opportunities</p>
+            <p className="text-xs text-muted-foreground/60 mt-1">Setups that passed filters</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
             <div className="text-2xl font-bold text-green-600">{stats?.trades_24h || 0}</div>
             <p className="text-xs text-muted-foreground">Trades Taken</p>
+            <p className="text-xs text-muted-foreground/60 mt-1">Entries executed</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
             <div className="text-2xl font-bold">{stats?.avg_score_24h?.toFixed(1) || '-'}</div>
             <p className="text-xs text-muted-foreground">Avg Score</p>
+            <p className="text-xs text-muted-foreground/60 mt-1">-1 bearish to +1 bullish</p>
           </CardContent>
         </Card>
         <Card>
@@ -418,6 +444,7 @@ export function MCPPanel() {
               {stats?.last_signal_at ? formatTimeAgo(stats.last_signal_at) : '-'}
             </div>
             <p className="text-xs text-muted-foreground">Last Signal</p>
+            <p className="text-xs text-muted-foreground/60 mt-1">Most recent scan</p>
           </CardContent>
         </Card>
       </div>
@@ -426,7 +453,12 @@ export function MCPPanel() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle className="text-base">Activity Feed</CardTitle>
+            <div>
+              <CardTitle className="text-base">Activity Feed</CardTitle>
+              <CardDescription>
+                Real-time signals from IV rank, RSI, trend analysis, and market regime detection
+              </CardDescription>
+            </div>
             <Button variant="ghost" size="sm" onClick={fetchSignals} disabled={isLoading}>
               <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             </Button>
@@ -465,24 +497,45 @@ export function MCPPanel() {
                       {getRegimeBadge(signal.market_regime)}
                     </div>
                     
-                    {signal.signal_type === 'opportunity' && (
+                    {(signal.composite_score !== null || signal.iv_rank !== null || signal.trend || signal.rsi_14 !== null) && (
                       <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
-                        {signal.composite_score && (
+                        {signal.trend && (
                           <div>
-                            <span className="text-muted-foreground">Score:</span>{' '}
-                            <span className="font-medium">{signal.composite_score.toFixed(1)}</span>
+                            <span className="text-muted-foreground">Trend:</span>{' '}
+                            <span className={`font-medium ${
+                              signal.trend === 'bullish' ? 'text-green-600' : 
+                              signal.trend === 'bearish' ? 'text-red-600' : ''
+                            }`}>{signal.trend}</span>
                           </div>
                         )}
-                        {signal.iv_rank && (
+                        {signal.composite_score !== null && signal.composite_score !== undefined && (
+                          <div>
+                            <span className="text-muted-foreground">Score:</span>{' '}
+                            <span className={`font-medium ${
+                              signal.composite_score > 0 ? 'text-green-600' : 
+                              signal.composite_score < 0 ? 'text-red-600' : ''
+                            }`}>{signal.composite_score > 0 ? '+' : ''}{signal.composite_score.toFixed(2)}</span>
+                          </div>
+                        )}
+                        {signal.iv_rank !== null && signal.iv_rank !== undefined && (
                           <div>
                             <span className="text-muted-foreground">IV Rank:</span>{' '}
                             <span className="font-medium">{signal.iv_rank.toFixed(0)}%</span>
                           </div>
                         )}
-                        {signal.credit && (
+                        {signal.rsi_14 !== null && signal.rsi_14 !== undefined && (
                           <div>
-                            <span className="text-muted-foreground">Credit:</span>{' '}
-                            <span className="font-medium text-green-600">${signal.credit.toFixed(2)}</span>
+                            <span className="text-muted-foreground">RSI:</span>{' '}
+                            <span className={`font-medium ${
+                              signal.rsi_14 < 30 ? 'text-green-600' : 
+                              signal.rsi_14 > 70 ? 'text-red-600' : ''
+                            }`}>{signal.rsi_14.toFixed(0)}</span>
+                          </div>
+                        )}
+                        {typeof signal.credit === 'number' && (
+                          <div>
+                            <span className="text-muted-foreground">{signal.credit >= 0 ? 'Credit' : 'Debit'}:</span>{' '}
+                            <span className={`font-medium ${signal.credit >= 0 ? 'text-green-600' : 'text-red-600'}`}>${Math.abs(signal.credit).toFixed(2)}</span>
                           </div>
                         )}
                       </div>

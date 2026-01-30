@@ -113,6 +113,8 @@ export const strategyEngine = {
         name: s.name,
         underlying: s.underlying,
         enabled: s.enabled,
+
+        // Dashboard controls strategy type (engine maps this to internal StrategyType)
         strategy_type: s.type,
         min_dte: s.entryConditions?.minDte ?? 30,
         max_dte: s.entryConditions?.maxDte ?? 60,
@@ -127,6 +129,25 @@ export const strategyEngine = {
 
         // Phase 4 wheel config (optional)
         wheel_config: s.type === 'wheel' ? (s.entryConditions?.wheelConfig || undefined) : undefined,
+
+        // Phase 1 unified liquidity gate
+        liquidity_max_spread_pct: s.entryConditions?.maxBidAskSpreadPerLegPercent ?? 15,
+        liquidity_config: {
+          bid_ask_spread_pct_index: s.entryConditions?.maxBidAskSpreadPerLegPercent ?? 15,
+          bid_ask_spread_pct_equity: s.entryConditions?.maxBidAskSpreadPerLegPercent ?? 15,
+          option_volume_min: s.entryConditions?.optionVolumeMin ?? 100,
+          open_interest_min: s.entryConditions?.openInterestMin ?? 500,
+          max_quote_age_seconds: s.entryConditions?.maxQuoteAgeSeconds ?? 300,
+          underlying_volume_min_pct_of_avg: s.entryConditions?.underlyingVolumeMinPctOfAvg ?? 50,
+        },
+
+        // Phase 1 IVR regime gate
+        ivr_config: s.entryConditions?.enableIvrGate
+          ? {
+              short_premium_min_ivr: s.entryConditions?.ivrShortPremiumMin ?? 40,
+              long_premium_max_ivr: s.entryConditions?.ivrLongPremiumMax ?? 30,
+            }
+          : undefined,
       }));
 
       const res = await fetch(`${API_BASE}/api/engine/evaluate`, {
