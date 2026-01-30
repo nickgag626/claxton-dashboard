@@ -19,7 +19,8 @@ import { RiskBook } from '@/components/dashboard/RiskBook';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { BookOpen, Grid3X3, Activity, AlertTriangle, RefreshCw, WifiOff, Loader2, Brain, Shield } from 'lucide-react';
+import { BookOpen, Grid3X3, Activity, AlertTriangle, RefreshCw, WifiOff, Loader2, Brain, Shield, TrendingUp } from 'lucide-react';
+import { IVSurfacePanel } from '@/components/dashboard/IVSurfacePanel';
 
 export default function Dashboard() {
   const {
@@ -211,7 +212,7 @@ export default function Dashboard() {
         />
         
         <Tabs defaultValue="journal" className="w-full">
-          <TabsList className="grid w-full grid-cols-6 max-w-3xl">
+          <TabsList className="grid w-full grid-cols-7 max-w-4xl">
             <TabsTrigger value="journal" className="flex items-center gap-2">
               <BookOpen className="h-4 w-4" />
               <span className="hidden sm:inline">Trade Journal</span>
@@ -226,6 +227,11 @@ export default function Dashboard() {
               <Grid3X3 className="h-4 w-4" />
               <span className="hidden sm:inline">Options Chain</span>
               <span className="sm:hidden">Chain</span>
+            </TabsTrigger>
+            <TabsTrigger value="ivsurface" className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4" />
+              <span className="hidden sm:inline">IV Surface</span>
+              <span className="sm:hidden">IV</span>
             </TabsTrigger>
             <TabsTrigger value="riskbook" className="flex items-center gap-2">
               <Shield className="h-4 w-4" />
@@ -251,6 +257,9 @@ export default function Dashboard() {
           </TabsContent>
           <TabsContent value="chain" className="mt-4">
             <OptionsChain />
+          </TabsContent>
+          <TabsContent value="ivsurface" className="mt-4">
+            <IVSurfacePanel />
           </TabsContent>
           <TabsContent value="riskbook" className="mt-4">
             <RiskBook />
