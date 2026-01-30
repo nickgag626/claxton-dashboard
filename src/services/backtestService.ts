@@ -79,6 +79,8 @@ export interface BacktestResult {
   trades: BacktestTrade[];
   config: Record<string, unknown>;
   broker_snapshot: Record<string, unknown>;
+  synthetic_chains?: boolean;
+  data_note?: string | null;
 }
 
 export interface StrategyTemplate {

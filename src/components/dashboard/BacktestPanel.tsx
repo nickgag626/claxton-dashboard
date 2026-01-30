@@ -401,6 +401,17 @@ export function BacktestPanel() {
       {/* ── Results ───────────────────────────────── */}
       {s && result && (
         <>
+          {/* Synthetic data warning */}
+          {result.synthetic_chains && (
+            <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-4 text-sm text-yellow-300">
+              <span className="font-semibold">⚠️ Synthetic Option Chains</span>
+              <span className="ml-2 text-yellow-400/80">
+                {result.data_note || 
+                  'Option chains were generated using Black-Scholes pricing with VIX-derived IV and skew approximation. Results are directionally useful but not historically precise. Use real chain data for production-grade backtests.'}
+              </span>
+            </div>
+          )}
+
           {/* KPI strip */}
           <div className="flex flex-wrap gap-3">
             <KPICard label="Total Return" value={fmtPct(s.total_return_pct)} color={s.total_return_pct >= 0 ? 'text-green-400' : 'text-red-400'} />
