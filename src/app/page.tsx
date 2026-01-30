@@ -19,8 +19,9 @@ import { RiskBook } from '@/components/dashboard/RiskBook';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { BookOpen, Grid3X3, Activity, AlertTriangle, RefreshCw, WifiOff, Loader2, Brain, Shield, TrendingUp } from 'lucide-react';
+import { BookOpen, Grid3X3, Activity, AlertTriangle, RefreshCw, WifiOff, Loader2, Brain, Shield, TrendingUp, FlaskConical } from 'lucide-react';
 import { IVSurfacePanel } from '@/components/dashboard/IVSurfacePanel';
+import { BacktestPanel } from '@/components/dashboard/BacktestPanel';
 
 export default function Dashboard() {
   const {
@@ -212,7 +213,7 @@ export default function Dashboard() {
         />
         
         <Tabs defaultValue="journal" className="w-full">
-          <TabsList className="grid w-full grid-cols-7 max-w-4xl">
+          <TabsList className="grid w-full grid-cols-8 max-w-5xl">
             <TabsTrigger value="journal" className="flex items-center gap-2">
               <BookOpen className="h-4 w-4" />
               <span className="hidden sm:inline">Trade Journal</span>
@@ -248,6 +249,11 @@ export default function Dashboard() {
               <span className="hidden sm:inline">Activity Log</span>
               <span className="sm:hidden">Activity</span>
             </TabsTrigger>
+            <TabsTrigger value="backtest" className="flex items-center gap-2">
+              <FlaskConical className="h-4 w-4" />
+              <span className="hidden sm:inline">Backtest</span>
+              <span className="sm:hidden">Backtest</span>
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="journal" className="mt-4">
             <TradeJournal />
@@ -269,6 +275,9 @@ export default function Dashboard() {
           </TabsContent>
           <TabsContent value="activity" className="mt-4">
             <ActivityLog events={activity} onClearHistory={clearHistory} />
+          </TabsContent>
+          <TabsContent value="backtest" className="mt-4">
+            <BacktestPanel />
           </TabsContent>
         </Tabs>
       </div>
