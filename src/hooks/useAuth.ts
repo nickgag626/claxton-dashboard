@@ -1,45 +1,62 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import type { User, Session } from '@supabase/supabase-js';
+
+interface AuthState {
+  user: string | null;
+  loading: boolean;
+  isAuthenticated: boolean;
+}
 
 export function useAuth() {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [state, setState] = useState<AuthState>({
+    user: null,
+    loading: true,
+    isAuthenticated: false,
+  });
 
+  // Check auth status on mount
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
+    fetch('/api/auth/check')
+      .then(async (res) => {
+        if (res.ok) {
+          const data = await res.json();
+          setState({ user: data.user, loading: false, isAuthenticated: true });
+        } else {
+          setState({ user: null, loading: false, isAuthenticated: false });
+        }
+      })
+      .catch(() => {
+        setState({ user: null, loading: false, isAuthenticated: false });
+      });
+  }, []);
+
+  const signIn = useCallback(async (username: string, password: string) => {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
     });
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
-      }
-    );
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.error || 'Login failed');
+    }
 
-    return () => subscription.unsubscribe();
+    const data = await res.json();
+    setState({ user: data.user, loading: false, isAuthenticated: true });
   }, []);
 
   const signOut = useCallback(async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    setSession(null);
+    await fetch('/api/auth/logout', { method: 'POST' });
+    setState({ user: null, loading: false, isAuthenticated: false });
   }, []);
 
   return {
-    user,
-    session,
-    loading,
+    user: state.user,
+    loading: state.loading,
+    isAuthenticated: state.isAuthenticated,
+    signIn,
     signOut,
-    isAuthenticated: !!session,
   };
 }

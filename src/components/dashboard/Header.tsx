@@ -37,7 +37,7 @@ export const Header = () => {
         {user && (
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground hidden sm:inline">
-              {user.email}
+              {user}
             </span>
             <Button
               variant="ghost"
