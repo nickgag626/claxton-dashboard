@@ -22,8 +22,9 @@ import { Button } from '@/components/ui/button';
 import { BookOpen, Grid3X3, Activity, AlertTriangle, RefreshCw, WifiOff, Loader2, Brain, Shield, TrendingUp, FlaskConical } from 'lucide-react';
 import { IVSurfacePanel } from '@/components/dashboard/IVSurfacePanel';
 import { BacktestPanel } from '@/components/dashboard/BacktestPanel';
+import { AuthGuard } from '@/components/auth/AuthGuard';
 
-export default function Dashboard() {
+function DashboardContent() {
   const {
     positions,
     greeks,
@@ -282,5 +283,13 @@ export default function Dashboard() {
         </Tabs>
       </div>
     </div>
+  );
+}
+
+export default function Dashboard() {
+  return (
+    <AuthGuard>
+      <DashboardContent />
+    </AuthGuard>
   );
 }
