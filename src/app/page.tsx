@@ -22,7 +22,7 @@ import { Button } from '@/components/ui/button';
 import { BookOpen, Grid3X3, Activity, AlertTriangle, RefreshCw, WifiOff, Loader2, Brain, Shield, TrendingUp, FlaskConical } from 'lucide-react';
 import { IVSurfacePanel } from '@/components/dashboard/IVSurfacePanel';
 import { BacktestPanel } from '@/components/dashboard/BacktestPanel';
-import { AuthGuard } from '@/components/auth/AuthGuard';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 
 function DashboardContent() {
   const {
@@ -115,7 +115,8 @@ function DashboardContent() {
   const showErrorBanner = error && !isApiConnected;
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-6">
+    <ProtectedRoute>
+      <div className="min-h-screen bg-background p-4 md:p-6">
       <div className="max-w-7xl mx-auto space-y-4">
         <Header />
         
@@ -289,13 +290,10 @@ function DashboardContent() {
         </Tabs>
       </div>
     </div>
+    </ProtectedRoute>
   );
 }
 
 export default function Dashboard() {
-  return (
-    <AuthGuard>
-      <DashboardContent />
-    </AuthGuard>
-  );
+  return <DashboardContent />;
 }

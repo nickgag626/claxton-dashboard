@@ -2,11 +2,10 @@
 
 import { motion } from "framer-motion";
 import { Activity, LogOut } from "lucide-react";
-import { useAuthContext } from "@/components/auth/AuthProvider";
-import { Button } from "@/components/ui/button";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 export const Header = () => {
-  const { user, signOut } = useAuthContext();
+  const { user, signOut } = useAuth();
 
   return (
     <motion.header
@@ -33,21 +32,16 @@ export const Header = () => {
           <span className="text-[10px] font-mono font-semibold text-trading-green uppercase tracking-wider">LIVE</span>
         </div>
 
-        {/* User + Sign Out */}
+        {/* User & Sign Out */}
         {user && (
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground hidden sm:inline">
-              {user}
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={signOut}
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <LogOut className="w-4 h-4" />
-            </Button>
-          </div>
+          <button
+            onClick={signOut}
+            title={`Sign out ${user.email}`}
+            className="flex items-center gap-2 px-3 py-1.5 text-muted-foreground hover:text-foreground border border-border/50 hover:border-border rounded-full transition-colors text-xs"
+          >
+            <span className="hidden sm:inline font-mono truncate max-w-[140px]">{user.email}</span>
+            <LogOut className="w-3.5 h-3.5" />
+          </button>
         )}
       </div>
     </motion.header>
