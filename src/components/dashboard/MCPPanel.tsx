@@ -25,8 +25,8 @@ import {
 import { createClient } from '@supabase/supabase-js';
 
 // Initialize Supabase client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://tlilzsovehqryoyywean.supabase.co';
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRsaWx6c292ZWhxcnlveXl3ZWFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3MjEwOTQsImV4cCI6MjA4MzI5NzA5NH0.H9ke0r2KVKr0EVkk7xADf-tqkQPqpq1EJX5WP5ndEwo';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://lzdjuqwizghoowbifuig.supabase.co';
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx6ZGp1cXdpemdob293YmlmdWlnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwMzI4MDksImV4cCI6MjA4NTYwODgwOX0.NjeSA9_NPBq8Qr4MHrwro5XfaDWDXU6CNJXjztmYSic';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // API base URL
