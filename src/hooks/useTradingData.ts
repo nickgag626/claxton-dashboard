@@ -98,6 +98,10 @@ export function useTradingData() {
     connected: false,
     lastEventAt: null,
   });
+
+  // Entry reconciler status
+  const [pendingReconcileCount, setPendingReconcileCount] = useState<number>(0);
+  const [lastReconcileAt, setLastReconcileAt] = useState<string | null>(null);
   
   // Risk state
   const [riskStatus, setRiskStatus] = useState<RiskStatus>({
@@ -147,6 +151,16 @@ export function useTradingData() {
         return;
       }
       
+      // Fetch reconciler status
+      try {
+        const rec = await tradierApi.getReconcileStatus();
+        setPendingReconcileCount(rec.pending_groups ?? 0);
+        setLastReconcileAt(rec.last_successful_reconcile_at ?? null);
+      } catch (e) {
+        // Non-fatal
+        console.warn('Failed to fetch reconcile status:', e);
+      }
+
       // Fetch bot status from API
       const botStatus = await botApi.getStatus();
       if (botStatus) {
@@ -628,6 +642,19 @@ export function useTradingData() {
   const refetch = useCallback(() => {
     fetchData();
   }, [fetchData]);
+
+  const manualReconcile = useCallback(async () => {
+    const res = await tradierApi.triggerReconcile();
+    // refresh status after trigger
+    try {
+      const rec = await tradierApi.getReconcileStatus();
+      setPendingReconcileCount(rec.pending_groups ?? 0);
+      setLastReconcileAt(rec.last_successful_reconcile_at ?? null);
+    } catch {
+      // ignore
+    }
+    return res;
+  }, []);
   
   return {
     // Data
@@ -649,6 +676,11 @@ export function useTradingData() {
     error,
     streamingStatus,
     dbRealtimeStatus,
+
+    // Reconciler observability
+    pendingReconcileCount,
+    lastReconcileAt,
+    manualReconcile,
     
     // Chart data
     deltaHistory,

@@ -99,6 +99,18 @@ export const tradierApi = {
     }
   },
 
+  async getReconcileStatus(): Promise<{ pending_groups: number; last_successful_reconcile_at: string | null }> {
+    return await apiCall<{ pending_groups: number; last_successful_reconcile_at: string | null }>(
+      '/api/reconcile/status'
+    );
+  },
+
+  async triggerReconcile(): Promise<any> {
+    return await apiCall<any>('/api/reconcile/trigger', {
+      method: 'POST',
+    });
+  },
+
   async getQuotes(symbols: string[]): Promise<Record<string, Quote>> {
     const quotes: Record<string, Quote> = {};
     

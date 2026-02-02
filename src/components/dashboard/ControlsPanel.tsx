@@ -7,6 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { tradierApi } from '@/services/tradierApi';
 import type { Greeks, RiskStatus, TradeSafeguards } from '@/types/trading';
@@ -25,6 +26,11 @@ interface ControlsPanelProps {
   onCloseDebugOptionsChange?: (opts: { dryRun: boolean; debug: boolean }) => void;
   lastCloseDebug?: any;
   onCopyCloseDebug?: () => void;
+
+  // Reconciler observability
+  pendingReconcileCount?: number;
+  lastReconcileAt?: string | null;
+  onManualSync?: () => Promise<any>;
 }
 
 export const ControlsPanel = ({
@@ -41,8 +47,12 @@ export const ControlsPanel = ({
   onCloseDebugOptionsChange,
   lastCloseDebug,
   onCopyCloseDebug,
+  pendingReconcileCount,
+  lastReconcileAt,
+  onManualSync,
 }: ControlsPanelProps) => {
   const [confirmEmergency, setConfirmEmergency] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [isEditingRisk, setIsEditingRisk] = useState(false);
   const [isEditingSafeguards, setIsEditingSafeguards] = useState(false);
   const [editMaxLoss, setEditMaxLoss] = useState(riskStatus.maxDailyLoss.toString());
@@ -71,6 +81,26 @@ export const ControlsPanel = ({
     }
   };
 
+  const handleManualSync = async () => {
+    if (!onManualSync) return;
+    setIsSyncing(true);
+    try {
+      const res = await onManualSync();
+      const summary = res?.summary || res?.data?.summary || res?.result?.summary;
+      if (summary) {
+        toast.success(
+          `Reconcile complete: +${summary.mapped_to_positions ?? 0} mapped, ${summary.marked_entry_unfilled ?? 0} unfilled`
+        );
+      } else {
+        toast.success('Reconcile complete');
+      }
+    } catch (err) {
+      toast.error(`Reconcile failed: ${String(err)}`);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const handleSaveRiskSettings = () => {
     const maxLoss = Math.max(0, Math.min(1000000, Number(editMaxLoss) || 1000));
     const maxPos = Math.max(1, Math.min(100, Number(editMaxPositions) || 5));
@@ -92,6 +122,42 @@ export const ControlsPanel = ({
       transition={{ delay: 0.2 }}
       className="terminal-panel flex flex-col gap-4"
     >
+      {/* Reconciliation Status */}
+      <div>
+        <div className="text-[10px] text-muted-foreground uppercase tracking-widest border-b border-border pb-1.5 mb-3 flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <Wifi className="w-3 h-3" />
+            Reconciliation
+          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            className="h-6 text-xs"
+            onClick={handleManualSync}
+            disabled={isSyncing || !onManualSync}
+          >
+            {isSyncing ? 'Syncing…' : 'Manual Sync'}
+          </Button>
+        </div>
+        <div className="space-y-1.5 text-xs text-muted-foreground">
+          <div className="flex justify-between items-center">
+            <span>Pending Entries:</span>
+            <span className={cn(
+              'font-mono',
+              (pendingReconcileCount ?? 0) > 0 ? 'text-bloomberg-amber' : 'text-foreground'
+            )}>
+              {(pendingReconcileCount ?? 0) > 0 ? `Syncing ${pendingReconcileCount}…` : '0'}
+            </span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span>Last Sync:</span>
+            <span className="font-mono text-foreground">
+              {lastReconcileAt ? new Date(lastReconcileAt).toLocaleTimeString('en-US', { hour12: false }) : '--:--:--'}
+            </span>
+          </div>
+        </div>
+      </div>
+
       {/* Net Greeks Panel */}
       <div>
         <div className="text-[10px] text-muted-foreground uppercase tracking-widest border-b border-border pb-1.5 mb-3">

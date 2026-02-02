@@ -40,6 +40,9 @@ function DashboardContent() {
     lastCheckExitsTime,
     streamingStatus,
     dbRealtimeStatus,
+    pendingReconcileCount,
+    lastReconcileAt,
+    manualReconcile,
     deltaHistory,
     pnlHistory,
     isLoading,
@@ -201,6 +204,9 @@ function DashboardContent() {
               onCloseDebugOptionsChange={setCloseDebugOptions}
               lastCloseDebug={lastCloseDebug}
               onCopyCloseDebug={copyLastCloseDebug}
+              pendingReconcileCount={pendingReconcileCount}
+              lastReconcileAt={lastReconcileAt}
+              onManualSync={manualReconcile}
             />
           </div>
         </div>
