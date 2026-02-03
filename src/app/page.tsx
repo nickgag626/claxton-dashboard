@@ -21,10 +21,12 @@ import { ParityPanel } from '@/components/dashboard/ParityPanel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { BookOpen, Grid3X3, Activity, AlertTriangle, RefreshCw, WifiOff, Loader2, Brain, Shield, TrendingUp, FlaskConical, Scale, HeartPulse } from 'lucide-react';
+import { BookOpen, Grid3X3, Activity, AlertTriangle, RefreshCw, WifiOff, Loader2, Brain, Shield, TrendingUp, FlaskConical, Scale, HeartPulse, ScrollText, ShieldCheck } from 'lucide-react';
 import { IVSurfacePanel } from '@/components/dashboard/IVSurfacePanel';
 import { BacktestPanel } from '@/components/dashboard/BacktestPanel';
 import { SLOPanel } from '@/components/dashboard/SLOPanel';
+import { AuditTrailPanel } from '@/components/dashboard/AuditTrailPanel';
+import { AdminPanel } from '@/components/dashboard/AdminPanel';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 
 function DashboardContent() {
@@ -226,7 +228,7 @@ function DashboardContent() {
         />
         
         <Tabs defaultValue="journal" className="w-full">
-          <TabsList className="grid w-full grid-cols-11 max-w-6xl">
+          <TabsList className="flex w-full overflow-x-auto max-w-6xl">
             <TabsTrigger value="journal" className="flex items-center gap-2">
               <BookOpen className="h-4 w-4" />
               <span className="hidden sm:inline">Trade Journal</span>
@@ -282,6 +284,16 @@ function DashboardContent() {
               <span className="hidden sm:inline">SLOs</span>
               <span className="sm:hidden">SLOs</span>
             </TabsTrigger>
+            <TabsTrigger value="audit" className="flex items-center gap-2">
+              <ScrollText className="h-4 w-4" />
+              <span className="hidden sm:inline">Audit Trail</span>
+              <span className="sm:hidden">Audit</span>
+            </TabsTrigger>
+            <TabsTrigger value="admin" className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4" />
+              <span className="hidden sm:inline">Admin</span>
+              <span className="sm:hidden">Admin</span>
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="journal" className="mt-4">
             <TradeJournal />
@@ -315,6 +327,12 @@ function DashboardContent() {
           </TabsContent>
           <TabsContent value="slo" className="mt-4">
             <SLOPanel />
+          </TabsContent>
+          <TabsContent value="audit" className="mt-4">
+            <AuditTrailPanel />
+          </TabsContent>
+          <TabsContent value="admin" className="mt-4">
+            <AdminPanel />
           </TabsContent>
         </Tabs>
       </div>
