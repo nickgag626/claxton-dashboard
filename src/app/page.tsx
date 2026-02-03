@@ -21,9 +21,10 @@ import { ParityPanel } from '@/components/dashboard/ParityPanel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { BookOpen, Grid3X3, Activity, AlertTriangle, RefreshCw, WifiOff, Loader2, Brain, Shield, TrendingUp, FlaskConical, Scale } from 'lucide-react';
+import { BookOpen, Grid3X3, Activity, AlertTriangle, RefreshCw, WifiOff, Loader2, Brain, Shield, TrendingUp, FlaskConical, Scale, HeartPulse } from 'lucide-react';
 import { IVSurfacePanel } from '@/components/dashboard/IVSurfacePanel';
 import { BacktestPanel } from '@/components/dashboard/BacktestPanel';
+import { SLOPanel } from '@/components/dashboard/SLOPanel';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 
 function DashboardContent() {
@@ -225,7 +226,7 @@ function DashboardContent() {
         />
         
         <Tabs defaultValue="journal" className="w-full">
-          <TabsList className="grid w-full grid-cols-10 max-w-6xl">
+          <TabsList className="grid w-full grid-cols-11 max-w-6xl">
             <TabsTrigger value="journal" className="flex items-center gap-2">
               <BookOpen className="h-4 w-4" />
               <span className="hidden sm:inline">Trade Journal</span>
@@ -276,6 +277,11 @@ function DashboardContent() {
               <span className="hidden sm:inline">Parity</span>
               <span className="sm:hidden">Parity</span>
             </TabsTrigger>
+            <TabsTrigger value="slo" className="flex items-center gap-2">
+              <HeartPulse className="h-4 w-4" />
+              <span className="hidden sm:inline">SLOs</span>
+              <span className="sm:hidden">SLOs</span>
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="journal" className="mt-4">
             <TradeJournal />
@@ -306,6 +312,9 @@ function DashboardContent() {
           </TabsContent>
           <TabsContent value="parity" className="mt-4">
             <ParityPanel />
+          </TabsContent>
+          <TabsContent value="slo" className="mt-4">
+            <SLOPanel />
           </TabsContent>
         </Tabs>
       </div>
