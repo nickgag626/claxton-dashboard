@@ -28,6 +28,15 @@ export type TriggerReconcileResponse = {
   anomalies: ReconcileAnomaly[];
 };
 
+export type ReconcileAnomalyAction = {
+  id: string;
+  anomaly_id: string;
+  action_type: string;
+  actor: string;
+  note?: string | null;
+  created_at_utc: string;
+};
+
 async function apiGet<T>(path: string): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, { cache: 'no-store' });
   const json = await res.json().catch(() => null);
@@ -74,4 +83,6 @@ export const quantReconcile = {
     params.set('resolved_by', resolvedBy);
     return apiPost<{ resolved: boolean; id: string }>(`/api/reconcile/anomalies/${id}/resolve?${params.toString()}`);
   },
+
+  anomalyActions: (id: string) => apiGet<{ actions: ReconcileAnomalyAction[] }>(`/api/reconcile/anomalies/${id}/actions`),
 };
