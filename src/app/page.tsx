@@ -16,6 +16,7 @@ import { OptionsChain } from '@/components/dashboard/OptionsChain';
 import { RecoveryPanel } from '@/components/dashboard/RecoveryPanel';
 import { MCPPanel } from '@/components/dashboard/MCPPanel';
 import { RiskBook } from '@/components/dashboard/RiskBook';
+import { ReconcileOrdersPanel } from '@/components/dashboard/ReconcileOrdersPanel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -221,7 +222,7 @@ function DashboardContent() {
         />
         
         <Tabs defaultValue="journal" className="w-full">
-          <TabsList className="grid w-full grid-cols-8 max-w-5xl">
+          <TabsList className="grid w-full grid-cols-9 max-w-6xl">
             <TabsTrigger value="journal" className="flex items-center gap-2">
               <BookOpen className="h-4 w-4" />
               <span className="hidden sm:inline">Trade Journal</span>
@@ -246,6 +247,11 @@ function DashboardContent() {
               <Shield className="h-4 w-4" />
               <span className="hidden sm:inline">Risk Book</span>
               <span className="sm:hidden">Risk</span>
+            </TabsTrigger>
+            <TabsTrigger value="reconcile" className="flex items-center gap-2">
+              <RefreshCw className="h-4 w-4" />
+              <span className="hidden sm:inline">Reconcile / Orders</span>
+              <span className="sm:hidden">Reconcile</span>
             </TabsTrigger>
             <TabsTrigger value="recovery" className="flex items-center gap-2">
               <AlertTriangle className="h-4 w-4" />
@@ -277,6 +283,9 @@ function DashboardContent() {
           </TabsContent>
           <TabsContent value="riskbook" className="mt-4">
             <RiskBook />
+          </TabsContent>
+          <TabsContent value="reconcile" className="mt-4">
+            <ReconcileOrdersPanel />
           </TabsContent>
           <TabsContent value="recovery" className="mt-4">
             <RecoveryPanel onRefresh={refetch} />
