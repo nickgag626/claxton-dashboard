@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { quantReconcile, ReconcileAnomaly, ReconcileStatus } from '@/services/quantReconcile';
+import { quantReconcile, ReconcileAnomaly, ReconcileAnomalyAction, ReconcileStatus } from '@/services/quantReconcile';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -16,6 +16,62 @@ function severityBadgeVariant(sev?: string) {
   if (s === 'P1') return { variant: 'secondary' as const, label: 'P1' };
   if (s === 'P2') return { variant: 'outline' as const, label: 'P2' };
   return { variant: 'outline' as const, label: s || '?' };
+}
+
+function AnomalyHistory({
+  anomaly,
+  loadActions,
+}: {
+  anomaly: ReconcileAnomaly;
+  loadActions: (id: string) => Promise<ReconcileAnomalyAction[]>;
+}) {
+  const [actions, setActions] = useState<ReconcileAnomalyAction[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setErr(null);
+    loadActions(anomaly.id)
+      .then((a) => {
+        if (!cancelled) setActions(a);
+      })
+      .catch((e: any) => {
+        if (!cancelled) setErr(e?.message || 'Failed to load history');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [anomaly.id]);
+
+  return (
+    <div>
+      <div className="text-xs font-semibold text-muted-foreground mb-1">History</div>
+      {loading && <div className="text-xs text-muted-foreground">Loading…</div>}
+      {err && <div className="text-xs text-red-500">{err}</div>}
+      {!loading && !err && (actions?.length ?? 0) === 0 && (
+        <div className="text-xs text-muted-foreground">No actions recorded yet.</div>
+      )}
+      {!loading && !err && (actions?.length ?? 0) > 0 && (
+        <div className="space-y-2">
+          {actions!.map((a) => (
+            <div key={a.id} className="rounded border p-2">
+              <div className="flex items-center justify-between text-xs">
+                <div className="font-medium">{a.action_type}</div>
+                <div className="text-muted-foreground">{a.created_at_utc}</div>
+              </div>
+              <div className="text-xs text-muted-foreground">actor: {a.actor}</div>
+              {a.note ? <div className="text-xs mt-1">{a.note}</div> : null}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function ReconcileOrdersPanel() {
@@ -67,6 +123,11 @@ export function ReconcileOrdersPanel() {
     } catch (e: any) {
       setError(e?.message || 'Failed to resolve anomaly');
     }
+  }
+
+  async function loadActions(anomalyId: string): Promise<ReconcileAnomalyAction[]> {
+    const res = await quantReconcile.anomalyActions(anomalyId);
+    return res.actions || [];
   }
 
   useEffect(() => {
@@ -179,7 +240,15 @@ export function ReconcileOrdersPanel() {
                               <DialogHeader>
                                 <DialogTitle>{a.type} — {a.anomaly_key}</DialogTitle>
                               </DialogHeader>
-                              <pre className="text-xs whitespace-pre-wrap">{JSON.stringify(a.details ?? {}, null, 2)}</pre>
+
+                              <div className="space-y-3">
+                                <div>
+                                  <div className="text-xs font-semibold text-muted-foreground mb-1">Details</div>
+                                  <pre className="text-xs whitespace-pre-wrap">{JSON.stringify(a.details ?? {}, null, 2)}</pre>
+                                </div>
+
+                                <AnomalyHistory anomaly={a} loadActions={loadActions} />
+                              </div>
                             </DialogContent>
                           </Dialog>
 
