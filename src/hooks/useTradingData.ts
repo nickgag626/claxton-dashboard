@@ -520,12 +520,19 @@ export function useTradingData() {
     }
   }, [positions, closeDebugOptions, addActivity, fetchData]);
   
+  const [closingInProgress, setClosingInProgress] = useState<string | null>(null);
+
   const closeGroup = useCallback(async (
     tradeGroupId: string,
     exitReason?: string,
     forceBrokenStructure?: boolean,
     forceClose?: boolean
   ): Promise<boolean> => {
+    if (closingInProgress) {
+      toast({ title: 'Close in Progress', description: 'A close order is already pending. Please wait.', variant: 'destructive' });
+      return false;
+    }
+
     const groupPositions = positions.filter(p => p.tradeGroupId === tradeGroupId);
     if (groupPositions.length === 0) {
       toast({ title: 'Error', description: 'No positions in group', variant: 'destructive' });
@@ -533,50 +540,89 @@ export function useTradingData() {
     }
     
     const symbols = groupPositions.map(p => p.symbol);
+    setClosingInProgress(tradeGroupId);
     
     addActivity({
       type: 'TRADE',
       message: `Closing group: ${symbols.join(', ')}${exitReason ? ` (${exitReason})` : ''}`,
     });
     
-    const result = await tradierApi.closeGroup(symbols, {
-      dryRun: closeDebugOptions.dryRun,
-      debug: closeDebugOptions.debug,
-      source: 'manual_ui_group',
-      trade_group_id: tradeGroupId,
-      forceClose,
-    });
-    
-    if (closeDebugOptions.debug) {
-      setLastCloseDebug(result.debug);
+    try {
+      const result = await tradierApi.closeGroup(symbols, {
+        dryRun: closeDebugOptions.dryRun,
+        debug: closeDebugOptions.debug,
+        source: 'manual_ui_group',
+        trade_group_id: tradeGroupId,
+        forceClose,
+      });
+      
+      if (closeDebugOptions.debug) {
+        setLastCloseDebug(result.debug);
+      }
+      
+      if (result.success) {
+        toast({ title: 'Group Closed', description: `Order submitted for ${symbols.length} legs` });
+        fetchData();
+        return true;
+      } else {
+        toast({ title: 'Close Failed', description: result.error, variant: 'destructive' });
+        return false;
+      }
+    } finally {
+      // Clear after a short delay so rapid clicks are still blocked
+      setTimeout(() => setClosingInProgress(null), 3000);
     }
-    
-    if (result.success) {
-      toast({ title: 'Group Closed', description: `Order submitted for ${symbols.length} legs` });
-      fetchData();
-      return true;
-    } else {
-      toast({ title: 'Close Failed', description: result.error, variant: 'destructive' });
-      return false;
-    }
-  }, [positions, closeDebugOptions, addActivity, fetchData]);
+  }, [positions, closeDebugOptions, addActivity, fetchData, closingInProgress]);
   
   const emergencyCloseAll = useCallback(async () => {
+    if (closingInProgress) {
+      toast({ title: 'Close in Progress', description: 'Emergency close already submitted. Please wait.', variant: 'destructive' });
+      return;
+    }
+    setClosingInProgress('emergency');
+
     addActivity({
       type: 'EMERGENCY',
       message: 'Emergency close initiated for all positions',
     });
     
-    for (const position of positions) {
-      await tradierApi.closePosition(position.symbol, position.quantity, {
-        source: 'emergency_close',
-        forceClose: true,
-      });
+    try {
+      // Group positions by tradeGroupId to close as spreads (fewer orders)
+      const grouped = new Map<string, Position[]>();
+      const ungrouped: Position[] = [];
+      for (const pos of positions) {
+        if (pos.tradeGroupId) {
+          const group = grouped.get(pos.tradeGroupId) || [];
+          group.push(pos);
+          grouped.set(pos.tradeGroupId, group);
+        } else {
+          ungrouped.push(pos);
+        }
+      }
+
+      // Close grouped positions as spreads
+      for (const [, groupPositions] of grouped) {
+        const symbols = groupPositions.map(p => p.symbol);
+        await tradierApi.closeGroup(symbols, {
+          source: 'emergency_close',
+          forceClose: true,
+        });
+      }
+
+      // Close ungrouped positions individually
+      for (const position of ungrouped) {
+        await tradierApi.closePosition(position.symbol, position.quantity, {
+          source: 'emergency_close',
+          forceClose: true,
+        });
+      }
+      
+      toast({ title: 'Emergency Close', description: 'All positions submitted for closing' });
+      fetchData();
+    } finally {
+      setTimeout(() => setClosingInProgress(null), 5000);
     }
-    
-    toast({ title: 'Emergency Close', description: 'All positions submitted for closing' });
-    fetchData();
-  }, [positions, addActivity, fetchData]);
+  }, [positions, addActivity, fetchData, closingInProgress]);
   
   const copyLastCloseDebug = useCallback(() => {
     if (lastCloseDebug) {
@@ -697,6 +743,7 @@ export function useTradingData() {
     deleteStrategy,
     closePosition,
     emergencyCloseAll,
+    closingInProgress,
     
     // Close debug
     closeDebugOptions,

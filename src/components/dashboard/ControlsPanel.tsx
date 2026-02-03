@@ -20,6 +20,7 @@ interface ControlsPanelProps {
   onToggleBot: () => void;
   onToggleKillSwitch: () => void;
   onEmergencyClose: () => void;
+  closingInProgress?: string | null;
   onUpdateRiskSettings?: (settings: { maxDailyLoss: number; maxPositions: number }) => void;
   onUpdateSafeguards?: (safeguards: TradeSafeguards) => void;
   closeDebugOptions?: { dryRun: boolean; debug: boolean };
@@ -41,6 +42,7 @@ export const ControlsPanel = ({
   onToggleBot,
   onToggleKillSwitch,
   onEmergencyClose,
+  closingInProgress,
   onUpdateRiskSettings,
   onUpdateSafeguards,
   closeDebugOptions,
@@ -638,13 +640,13 @@ export const ControlsPanel = ({
           </div>
           <Button
             onClick={onEmergencyClose}
-            disabled={!confirmEmergency}
+            disabled={!confirmEmergency || !!closingInProgress}
             variant="secondary"
             size="sm"
             className="w-full font-mono text-xs bg-panic-red/10 border-panic-red/30 text-panic-red hover:bg-panic-red/20 disabled:opacity-50"
           >
             <AlertTriangle className="w-3 h-3 mr-1" />
-            EMERGENCY CLOSE
+            {closingInProgress ? 'CLOSING IN PROGRESS…' : 'EMERGENCY CLOSE'}
           </Button>
         </div>
       </div>

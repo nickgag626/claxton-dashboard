@@ -58,6 +58,7 @@ function DashboardContent() {
     deleteStrategy,
     closePosition,
     emergencyCloseAll,
+    closingInProgress,
     closeDebugOptions,
     setCloseDebugOptions,
     lastCloseDebug,
@@ -200,6 +201,7 @@ function DashboardContent() {
               onToggleBot={toggleBot}
               onToggleKillSwitch={toggleKillSwitch}
               onEmergencyClose={emergencyCloseAll}
+              closingInProgress={closingInProgress}
               onUpdateRiskSettings={updateRiskSettings}
               onUpdateSafeguards={updateSafeguards}
               closeDebugOptions={closeDebugOptions}
