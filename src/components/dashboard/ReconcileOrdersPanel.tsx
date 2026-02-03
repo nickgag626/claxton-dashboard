@@ -19,6 +19,22 @@ function severityBadgeVariant(sev?: string) {
   return { variant: 'outline' as const, label: s || '?' };
 }
 
+function formatEt(ts?: string | null) {
+  if (!ts) return '—';
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return ts;
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).format(d);
+}
+
 function AnomalyHistory({
   anomaly,
   loadActions,
@@ -217,8 +233,8 @@ export function ReconcileOrdersPanel() {
               <div className="font-semibold">{status?.pending_groups ?? '—'}</div>
             </div>
             <div>
-              <div className="text-muted-foreground">Last successful entry reconcile</div>
-              <div className="font-semibold">{status?.last_successful_reconcile_at ?? '—'}</div>
+              <div className="text-muted-foreground">Last successful entry reconcile (ET)</div>
+              <div className="font-semibold">{formatEt(status?.last_successful_reconcile_at ?? null)}</div>
             </div>
             <div>
               <div className="text-muted-foreground">Open anomalies</div>
@@ -275,7 +291,7 @@ export function ReconcileOrdersPanel() {
                       <TableCell className="font-medium">{a.type}</TableCell>
                       <TableCell>{a.broker || '—'}</TableCell>
                       <TableCell className="font-mono text-xs">{a.broker_order_id || '—'}</TableCell>
-                      <TableCell className="text-xs">{a.last_seen_at || '—'}</TableCell>
+                      <TableCell className="text-xs">{formatEt(a.last_seen_at || null)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
                           <Button
@@ -359,7 +375,7 @@ export function ReconcileOrdersPanel() {
                       if (x.trade_group_id) setSelectedTradeGroupId(x.trade_group_id);
                     }}
                   >
-                    <TableCell className="text-xs">{x.created_at || '—'}</TableCell>
+                    <TableCell className="text-xs">{formatEt(x.created_at || null)}</TableCell>
                     <TableCell>{x.broker}</TableCell>
                     <TableCell className="font-mono text-xs">{x.id.slice(0, 8)}</TableCell>
                     <TableCell className="font-mono text-xs">{x.trade_group_id?.slice(0, 8) || '—'}</TableCell>
@@ -402,7 +418,7 @@ export function ReconcileOrdersPanel() {
                     <TableCell className="font-mono text-xs">{b.state}</TableCell>
                     <TableCell className="font-mono text-xs">{b.broker_order_id}</TableCell>
                     <TableCell className="font-mono text-xs">{b.intent_id.slice(0, 8)}</TableCell>
-                    <TableCell className="text-xs">{b.last_seen_at_utc || '—'}</TableCell>
+                    <TableCell className="text-xs">{formatEt(b.last_seen_at_utc || null)}</TableCell>
                   </TableRow>
                 ))
               )}
@@ -448,7 +464,7 @@ export function ReconcileOrdersPanel() {
               ) : (
                 fills.map((f, i) => (
                   <TableRow key={`${f.order_id || 'o'}-${i}`}>
-                    <TableCell className="text-xs">{f.fill_time || '—'}</TableCell>
+                    <TableCell className="text-xs">{formatEt(f.fill_time || null)}</TableCell>
                     <TableCell>{f.broker || '—'}</TableCell>
                     <TableCell className="font-mono text-xs">{f.order_id || '—'}</TableCell>
                     <TableCell className="font-mono text-xs">{f.symbol || '—'}</TableCell>
