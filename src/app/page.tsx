@@ -17,10 +17,11 @@ import { RecoveryPanel } from '@/components/dashboard/RecoveryPanel';
 import { MCPPanel } from '@/components/dashboard/MCPPanel';
 import { RiskBook } from '@/components/dashboard/RiskBook';
 import { ReconcileOrdersPanel } from '@/components/dashboard/ReconcileOrdersPanel';
+import { ParityPanel } from '@/components/dashboard/ParityPanel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { BookOpen, Grid3X3, Activity, AlertTriangle, RefreshCw, WifiOff, Loader2, Brain, Shield, TrendingUp, FlaskConical } from 'lucide-react';
+import { BookOpen, Grid3X3, Activity, AlertTriangle, RefreshCw, WifiOff, Loader2, Brain, Shield, TrendingUp, FlaskConical, Scale } from 'lucide-react';
 import { IVSurfacePanel } from '@/components/dashboard/IVSurfacePanel';
 import { BacktestPanel } from '@/components/dashboard/BacktestPanel';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
@@ -224,7 +225,7 @@ function DashboardContent() {
         />
         
         <Tabs defaultValue="journal" className="w-full">
-          <TabsList className="grid w-full grid-cols-9 max-w-6xl">
+          <TabsList className="grid w-full grid-cols-10 max-w-6xl">
             <TabsTrigger value="journal" className="flex items-center gap-2">
               <BookOpen className="h-4 w-4" />
               <span className="hidden sm:inline">Trade Journal</span>
@@ -270,6 +271,11 @@ function DashboardContent() {
               <span className="hidden sm:inline">Backtest</span>
               <span className="sm:hidden">Backtest</span>
             </TabsTrigger>
+            <TabsTrigger value="parity" className="flex items-center gap-2">
+              <Scale className="h-4 w-4" />
+              <span className="hidden sm:inline">Parity</span>
+              <span className="sm:hidden">Parity</span>
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="journal" className="mt-4">
             <TradeJournal />
@@ -297,6 +303,9 @@ function DashboardContent() {
           </TabsContent>
           <TabsContent value="backtest" className="mt-4">
             <BacktestPanel />
+          </TabsContent>
+          <TabsContent value="parity" className="mt-4">
+            <ParityPanel />
           </TabsContent>
         </Tabs>
       </div>
